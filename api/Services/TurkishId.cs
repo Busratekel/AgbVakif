@@ -23,21 +23,33 @@ public static class TurkishId
         return digits;
     }
 
-    public static bool IsValidTc(string tc)
+    /// <summary>T.C. kimlik numarası algoritmik doğrulama (11 hane + kontrol basamakları).</summary>
+    public static bool ValidateTCKN(string? tcno)
     {
-        if (tc.Length != 11 || tc[0] == '0' || !tc.All(char.IsDigit))
+        if (string.IsNullOrWhiteSpace(tcno)) return false;
+
+        var tc = NormalizeTc(tcno);
+        if (tc.Length != 11 || !long.TryParse(tc, out _) || tc[0] == '0')
         {
             return false;
         }
 
-        var d = tc.Select(c => c - '0').ToArray();
-        var oddSum = d[0] + d[2] + d[4] + d[6] + d[8];
-        var evenSum = d[1] + d[3] + d[5] + d[7];
+        var digits = tc.Select(c => c - '0').ToArray();
+
+        var oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+        var evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+
+        // C#’te % negatif sonuç verebilir; 0–9 aralığına çek
         var digit10 = ((oddSum * 7) - evenSum) % 10;
         if (digit10 < 0) digit10 += 10;
-        if (d[9] != digit10) return false;
-        return d[10] == d.Take(10).Sum() % 10;
+        if (digit10 != digits[9]) return false;
+
+        if (digits.Take(10).Sum() % 10 != digits[10]) return false;
+
+        return true;
     }
+
+    public static bool IsValidTc(string tc) => ValidateTCKN(tc);
 
     public static bool IsValidMobile(string phone) =>
         Regex.IsMatch(phone, @"^05\d{9}$");

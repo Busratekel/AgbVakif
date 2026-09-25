@@ -20,6 +20,7 @@ import {
   type BasvuruData,
   type WizardStep,
 } from '../basvuruTypes'
+import { validateTCKN } from '../tcKimlik'
 import { KvkkContent } from './KvkkContent'
 
 type ApiBasvuru = Record<string, unknown> & {
@@ -246,6 +247,10 @@ export function ApplicationWizard() {
 
   async function sendKimlik() {
     setError('')
+    if (!validateTCKN(tc)) {
+      setError('T.C. kimlik numarası geçersiz. Lütfen 11 haneli geçerli bir numara girin.')
+      return
+    }
     setLoading(true)
     try {
       const response = await fetch(`${FORM_API_URL}/basvuru/kimlik`, {
@@ -548,7 +553,7 @@ export function ApplicationWizard() {
                   setStep('kimlik')
                 }}
               >
-                Daha önce başvurdunuz mu? Başvurumu görüntüle / düzenle / geri çek
+                Daha önce başvurdunuz mu? Başvurumu görüntüle / düzenle
               </button>
             </>
           )}
@@ -561,7 +566,7 @@ export function ApplicationWizard() {
                 {returning ? ' Mevcut başvurunuz varsa bilgiler getirilecektir.' : ''}
               </p>
               <div className="form-grid">
-                <label className="full">
+                <label className={`full${tc.length === 11 && !validateTCKN(tc) ? ' is-invalid' : ''}`}>
                   <span>T.C. kimlik no</span>
                   <input
                     value={tc}
@@ -569,8 +574,13 @@ export function ApplicationWizard() {
                     inputMode="numeric"
                     maxLength={11}
                     placeholder="11 haneli"
+                    aria-invalid={tc.length === 11 && !validateTCKN(tc)}
                   />
-                  <small className="field-hint">11 karakter olmalıdır; sistemde şifreli tutulur.</small>
+                  {tc.length === 11 && !validateTCKN(tc) ? (
+                    <small className="field-error">Geçersiz T.C. kimlik numarası.</small>
+                  ) : (
+                    <small className="field-hint">11 haneli geçerli bir T.C. kimlik numarası girin.</small>
+                  )}
                 </label>
                 <label className="full">
                   <span>Cep telefonu</span>
@@ -587,7 +597,7 @@ export function ApplicationWizard() {
                 <button
                   type="button"
                   className="btn"
-                  disabled={loading || tc.length !== 11 || onlyDigits(telefon, 11).length < 11}
+                  disabled={loading || !validateTCKN(tc) || onlyDigits(telefon, 11).length < 11}
                   onClick={() => void sendKimlik()}
                 >
                   {loading ? 'Gönderiliyor…' : 'Doğrulama kodu gönder'}
@@ -741,14 +751,6 @@ export function ApplicationWizard() {
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </label>
-                <label className={`full ${isInvalid('kategori')}`}>
-                  <span>Destek kategorisi<abbr className="req" title="Zorunlu">*</abbr></span>
-                  {fieldError('kategori')}
-                  <select value={data.kategori} onChange={(e) => update({ kategori: e.target.value })}>
-                    <option value="">Seçiniz</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </label>
               </div>
 
               <div className="wizard-actions space-between">
@@ -783,7 +785,7 @@ export function ApplicationWizard() {
                 <label className={isInvalid('babaMeslegi')}>
                   <span>Baba mesleği<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('babaMeslegi')}
-                  <input value={data.babaMeslegi} onChange={(e) => update({ babaMeslegi: e.target.value })} />
+                  <input value={data.babaMeslegi} onChange={(e) => update({ babaMeslegi: lettersOnly(e.target.value) })} />
                 </label>
                 <label className={isInvalid('babaAylikGelir')}>
                   <span>Baba aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
@@ -811,7 +813,7 @@ export function ApplicationWizard() {
                 <label className={isInvalid('anneMeslegi')}>
                   <span>Anne mesleği<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('anneMeslegi')}
-                  <input value={data.anneMeslegi} onChange={(e) => update({ anneMeslegi: e.target.value })} />
+                  <input value={data.anneMeslegi} onChange={(e) => update({ anneMeslegi: lettersOnly(e.target.value) })} />
                 </label>
                 <label className={isInvalid('anneAylikGelir')}>
                   <span>Anne aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
@@ -821,6 +823,7 @@ export function ApplicationWizard() {
                     onChange={(e) => update({ anneAylikGelir: formatMoneyInput(e.target.value) })}
                     placeholder="örn. 0"
                   />
+                  <small className="field-hint">Geliri yoksa 0 yazınız.</small>
                 </label>
                 <label className={isInvalid('anneBabaBirlikte')}>
                   <span>Anne-baba birlikte mi?<abbr className="req" title="Zorunlu">*</abbr></span>
@@ -889,12 +892,12 @@ export function ApplicationWizard() {
                   </select>
                 </label>
                 <label className="full">
-                  <span>Özel durum açıklaması (isteğe bağlı)</span>
+                  <span>Özel durum açıklaması</span>
                   <textarea
                     rows={3}
                     value={data.ozelDurum}
                     onChange={(e) => update({ ozelDurum: e.target.value })}
-                    placeholder="İsterseniz kısa açıklama yazabilirsiniz."
+                    placeholder="Lütfen kısa bir açıklama yazınız."
                   />
                 </label>
               </div>

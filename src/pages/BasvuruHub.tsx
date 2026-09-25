@@ -41,24 +41,6 @@ export function BasvuruHub() {
         <hr className="basvuru-rule" />
       </header>
 
-      <p className="basvuru-org">{SITE.name.toLocaleUpperCase('tr-TR')}</p>
-      {donem ? (
-        <>
-          <p className="basvuru-program">
-            <strong>{donem.baslik}</strong>
-          </p>
-          {donem.baslikNot.trim() ? <p className="muted">{donem.baslikNot}</p> : null}
-          {donem.donemMetni ? (
-            <p className="basvuru-dates">{donem.donemMetni}</p>
-          ) : null}
-          <p className={donem.acik ? 'basvuru-status is-open' : 'basvuru-status is-closed'}>
-            {donem.acik ? 'Başvuru dönemi açıktır.' : 'Başvuru dönemi şu an kapalıdır.'}
-          </p>
-        </>
-      ) : (
-        <p className="muted">Dönem bilgisi yükleniyor…</p>
-      )}
-
       <p>
         {SITE.name}; maddi imkânları kısıtlı, başarılı önlisans ve lisans
         öğrencilerine burs vermektedir. Yüksek lisans ve doktora öğrencileri bu

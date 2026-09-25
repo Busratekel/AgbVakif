@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CONTACT, KURUMSAL_NAV, SITE } from '../config'
+import { BASVURU_NAV, CONTACT, KURUMSAL_NAV, SITE } from '../config'
 import { useKvkk } from './KvkkModal'
 
 export function Footer() {
@@ -26,10 +26,11 @@ export function Footer() {
         <div className="footer-col">
           <strong>Başvuru</strong>
           <ul>
-            <li><Link to="/basvuru">Genel bilgilendirme</Link></li>
-            <li><Link to="/basvuru/sss">SSS</Link></li>
-            <li><Link to="/basvuru/belgeler">Gerekli belgeler</Link></li>
-            <li><Link to="/basvuru/form">Burs başvurusu</Link></li>
+            {BASVURU_NAV.map((item) => (
+              <li key={item.to}>
+                <Link to={item.to}>{item.label}</Link>
+              </li>
+            ))}
           </ul>
         </div>
 

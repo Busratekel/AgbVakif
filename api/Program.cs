@@ -56,6 +56,15 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 45L * 1024 * 1024;
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 45L * 1024 * 1024;
+});
+
 var app = builder.Build();
 var logger = app.Logger;
 
@@ -82,6 +91,7 @@ app.MapGet("/", () => Results.Ok(new
     {
         "/api/health",
         "GET /api/basvuru/donem",
+        "GET /api/basvuru/istatistik",
         "POST /api/basvuru/kimlik",
         "POST /api/basvuru/sms-dogrula",
         "GET /api/basvuru/me",

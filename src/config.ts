@@ -25,10 +25,6 @@ export const CONTACT = {
 } as const
 
 export const STATUSES = [
-  'Anadolu Güçbirliği Holding çalışanı',
-  'Grup şirketi çalışanı',
-  'Çalışanın çocuğu',
-  'Çalışanın birinci derece yakını',
   'Diğer / Bireysel başvuru',
   'Kurum / STK başvurusu',
 ] as const
@@ -70,6 +66,14 @@ export const KURUMSAL_NAV = [
   { to: '/kurumsal/baskan', label: "Başkan’ın mesajı" },
   { to: '/kurumsal/ceo', label: 'CEO’nun mesajı' },
   { to: '/kurumsal/yonetim-kurulu', label: 'Yönetim kurulu' },
+] as const
+
+export const BASVURU_NAV = [
+  { to: '/basvuru/istatistikler', label: 'İstatistikler', end: false },
+  { to: '/basvuru', label: 'Genel bilgilendirme', end: true },
+  { to: '/basvuru/sss', label: 'Burslar hakkında SSS', end: false },
+  { to: '/basvuru/belgeler', label: 'Burs için gerekli belgeler', end: false },
+  { to: '/basvuru/form', label: 'Burs başvurusu', end: false },
 ] as const
 
 export const KURUMSAL_HAKKINDA = {

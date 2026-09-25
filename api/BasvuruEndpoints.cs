@@ -13,6 +13,7 @@ public static class BasvuruEndpoints
         var group = app.MapGroup("/api/basvuru");
 
         group.MapGet("/donem", HandleDonem);
+        group.MapGet("/istatistik", HandleIstatistik);
         group.MapPost("/kimlik", HandleKimlik);
         group.MapPost("/sms-dogrula", HandleSmsDogrula);
         group.MapPost("/sms-tekrar", HandleSmsTekrar);
@@ -84,6 +85,52 @@ public static class BasvuruEndpoints
         });
     }
 
+    private static async Task<IResult> HandleIstatistik(
+        BoytasWhContext db,
+        int? yil,
+        CancellationToken ct)
+    {
+        var approved = db.AGB_Vakif_Basvuru.AsNoTracking()
+            .Where(x => x.Durum == "Onaylandi");
+
+        var years = await approved
+            .Select(x => x.GuncellemeTarihi.Year)
+            .Distinct()
+            .OrderByDescending(y => y)
+            .ToListAsync(ct);
+
+        if (years.Count == 0)
+        {
+            years.Add(DateTime.Now.Year);
+        }
+
+        var selected = yil is > 2000 and < 2100 ? yil.Value : years[0];
+        if (!years.Contains(selected))
+        {
+            years.Add(selected);
+            years = years.OrderByDescending(y => y).ToList();
+        }
+
+        var groups = await approved
+            .Where(x => x.GuncellemeTarihi.Year == selected)
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Kategori) ? "Diğer" : x.Kategori!.Trim())
+            .Select(g => new { label = g.Key, count = g.Count() })
+            .OrderByDescending(x => x.count)
+            .ThenBy(x => x.label)
+            .ToListAsync(ct);
+
+        var total = groups.Sum(x => x.count);
+
+        return Results.Ok(new
+        {
+            success = true,
+            yil = selected,
+            years,
+            total,
+            items = groups,
+        });
+    }
+
     private static async Task<IResult> HandleKimlik(
         KimlikRequest request,
         BoytasWhContext db,
@@ -102,9 +149,13 @@ public static class BasvuruEndpoints
         var tc = TurkishId.NormalizeTc(request.TcKimlikNo);
         var telefon = TurkishId.NormalizePhone(request.Telefon);
 
-        if (!TurkishId.IsValidTc(tc))
+        if (!TurkishId.ValidateTCKN(tc))
         {
-            return Results.BadRequest(new { success = false, message = "T.C. kimlik numarası geçersiz (11 hane)." });
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "T.C. kimlik numarası geçersiz. Lütfen 11 haneli geçerli bir numara girin.",
+            });
         }
 
         if (!TurkishId.IsValidMobile(telefon))
@@ -193,7 +244,7 @@ public static class BasvuruEndpoints
         var logger = loggerFactory.CreateLogger("Basvuru");
         var tc = TurkishId.NormalizeTc(request.TcKimlikNo);
         var telefon = TurkishId.NormalizePhone(request.Telefon);
-        if (!TurkishId.IsValidTc(tc) || !TurkishId.IsValidMobile(telefon))
+        if (!TurkishId.ValidateTCKN(tc) || !TurkishId.IsValidMobile(telefon))
         {
             return Results.BadRequest(new { success = false, message = "Kimlik bilgileri geçersiz." });
         }
@@ -256,6 +307,16 @@ public static class BasvuruEndpoints
         if (!IsName(request.Ad) || !IsName(request.Soyad))
         {
             return Results.BadRequest(new { success = false, message = "Ad ve soyad yalnızca harf içermelidir." });
+        }
+
+        if (!IsOptionalName(request.BabaAdi) || !IsOptionalName(request.AnneAdi)
+            || !IsOptionalName(request.BabaMeslegi) || !IsOptionalName(request.AnneMeslegi))
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "Anne/baba adı ve meslek alanları yalnızca harf içermelidir.",
+            });
         }
 
         var entity = await db.AGB_Vakif_Basvuru
@@ -471,4 +532,7 @@ public static class BasvuruEndpoints
     private static bool IsName(string value) =>
         !string.IsNullOrWhiteSpace(value) &&
         value.All(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c is '-' or '\'');
+
+    private static bool IsOptionalName(string? value) =>
+        string.IsNullOrWhiteSpace(value) || IsName(value);
 }

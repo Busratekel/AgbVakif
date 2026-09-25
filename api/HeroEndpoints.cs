@@ -6,10 +6,21 @@ namespace AgbVakif.Api;
 
 public static class HeroEndpoints
 {
-    private static readonly HashSet<string> AllowedExt = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedImageExt = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".webp", ".gif",
     };
+
+    private static readonly HashSet<string> AllowedVideoExt = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".webm",
+    };
+
+    private static readonly HashSet<string> AllowedExt =
+        new(AllowedImageExt.Concat(AllowedVideoExt), StringComparer.OrdinalIgnoreCase);
+
+    private const long MaxImageBytes = 5L * 1024 * 1024;
+    private const long MaxVideoBytes = 40L * 1024 * 1024;
 
     public static void MapHeroEndpoints(this WebApplication app)
     {
@@ -50,14 +61,25 @@ public static class HeroEndpoints
         CancellationToken ct)
     {
         var form = await request.ReadFormAsync(ct);
+        var baslik = (form["baslik"].ToString() ?? "").Trim();
+        var ustBaslik = NullIfEmpty(form["ustBaslik"].ToString());
+        var butonMetin = NullIfEmpty(form["butonMetin"].ToString());
+        var butonLink = NullIfEmpty(form["butonLink"].ToString());
+
+        var lengthError = ValidateFieldLengths(baslik, ustBaslik, butonMetin, butonLink);
+        if (lengthError is not null)
+        {
+            return Results.BadRequest(new { success = false, message = lengthError });
+        }
+
         var entity = new AgbHeroSlide
         {
             Id = Guid.NewGuid(),
-            Baslik = (form["baslik"].ToString() ?? "").Trim(),
+            Baslik = baslik,
             Aciklama = NullIfEmpty(form["aciklama"].ToString()),
-            UstBaslik = NullIfEmpty(form["ustBaslik"].ToString()),
-            ButonMetin = NullIfEmpty(form["butonMetin"].ToString()),
-            ButonLink = NullIfEmpty(form["butonLink"].ToString()),
+            UstBaslik = ustBaslik,
+            ButonMetin = butonMetin,
+            ButonLink = butonLink,
             Sira = ParseInt(form["sira"], 0),
             Aktif = ParseBool(form["aktif"], true),
             OlusturmaTarihi = DateTime.UtcNow,
@@ -67,7 +89,7 @@ public static class HeroEndpoints
         var file = form.Files.GetFile("resim");
         if (file is { Length: > 0 })
         {
-            var saved = await SaveImageAsync(file, env, ct);
+            var saved = await SaveMediaAsync(file, env, ct);
             if (saved.error is not null)
             {
                 return Results.BadRequest(new { success = false, message = saved.error });
@@ -77,7 +99,19 @@ public static class HeroEndpoints
         }
 
         db.AGB_Vakif_HeroSlide.Add(entity);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "Kayıt kaydedilemedi. Metin alanlarından biri çok uzun olabilir.",
+            });
+        }
+
         return Results.Ok(new { success = true, data = ToDto(entity) });
     }
 
@@ -96,11 +130,21 @@ public static class HeroEndpoints
 
         var form = await request.ReadFormAsync(ct);
         var baslik = (form["baslik"].ToString() ?? "").Trim();
+        var ustBaslik = NullIfEmpty(form["ustBaslik"].ToString());
+        var butonMetin = NullIfEmpty(form["butonMetin"].ToString());
+        var butonLink = NullIfEmpty(form["butonLink"].ToString());
+
+        var lengthError = ValidateFieldLengths(baslik, ustBaslik, butonMetin, butonLink);
+        if (lengthError is not null)
+        {
+            return Results.BadRequest(new { success = false, message = lengthError });
+        }
+
         entity.Baslik = baslik;
         entity.Aciklama = NullIfEmpty(form["aciklama"].ToString());
-        entity.UstBaslik = NullIfEmpty(form["ustBaslik"].ToString());
-        entity.ButonMetin = NullIfEmpty(form["butonMetin"].ToString());
-        entity.ButonLink = NullIfEmpty(form["butonLink"].ToString());
+        entity.UstBaslik = ustBaslik;
+        entity.ButonMetin = butonMetin;
+        entity.ButonLink = butonLink;
         entity.Sira = ParseInt(form["sira"], entity.Sira);
         entity.Aktif = ParseBool(form["aktif"], entity.Aktif);
         entity.GuncellemeTarihi = DateTime.UtcNow;
@@ -108,22 +152,34 @@ public static class HeroEndpoints
         var file = form.Files.GetFile("resim");
         if (file is { Length: > 0 })
         {
-            var saved = await SaveImageAsync(file, env, ct);
+            var saved = await SaveMediaAsync(file, env, ct);
             if (saved.error is not null)
             {
                 return Results.BadRequest(new { success = false, message = saved.error });
             }
 
-            TryDeleteImage(entity.ResimUrl, env);
+            TryDeleteMedia(entity.ResimUrl, env);
             entity.ResimUrl = saved.url;
         }
         else if (ParseBool(form["resimKaldir"], false))
         {
-            TryDeleteImage(entity.ResimUrl, env);
+            TryDeleteMedia(entity.ResimUrl, env);
             entity.ResimUrl = null;
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "Kayıt güncellenemedi. Metin alanlarından biri çok uzun olabilir.",
+            });
+        }
+
         return Results.Ok(new { success = true, data = ToDto(entity) });
     }
 
@@ -139,26 +195,30 @@ public static class HeroEndpoints
             return Results.NotFound(new { success = false, message = "Slayt bulunamadı." });
         }
 
-        TryDeleteImage(entity.ResimUrl, env);
+        TryDeleteMedia(entity.ResimUrl, env);
         db.AGB_Vakif_HeroSlide.Remove(entity);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { success = true });
     }
 
-    private static async Task<(string? url, string? error)> SaveImageAsync(
+    private static async Task<(string? url, string? error)> SaveMediaAsync(
         IFormFile file,
         IWebHostEnvironment env,
         CancellationToken ct)
     {
-        if (file.Length > 5 * 1024 * 1024)
-        {
-            return (null, "Resim en fazla 5 MB olabilir.");
-        }
-
         var ext = Path.GetExtension(file.FileName);
         if (string.IsNullOrWhiteSpace(ext) || !AllowedExt.Contains(ext))
         {
-            return (null, "İzin verilen formatlar: jpg, png, webp, gif.");
+            return (null, "İzin verilen formatlar: jpg, png, webp, gif, mp4, webm.");
+        }
+
+        var isVideo = AllowedVideoExt.Contains(ext);
+        var maxBytes = isVideo ? MaxVideoBytes : MaxImageBytes;
+        if (file.Length > maxBytes)
+        {
+            return (null, isVideo
+                ? "Video en fazla 40 MB olabilir."
+                : "Resim en fazla 5 MB olabilir.");
         }
 
         var dir = Path.Combine(env.ContentRootPath, "Uploads", "hero");
@@ -173,7 +233,7 @@ public static class HeroEndpoints
         return ($"/uploads/hero/{name}", null);
     }
 
-    private static void TryDeleteImage(string? url, IWebHostEnvironment env)
+    private static void TryDeleteMedia(string? url, IWebHostEnvironment env)
     {
         if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("/uploads/hero/", StringComparison.OrdinalIgnoreCase))
             return;
@@ -201,6 +261,23 @@ public static class HeroEndpoints
         x.OlusturmaTarihi,
         x.GuncellemeTarihi,
     };
+
+    private static string? ValidateFieldLengths(
+        string baslik,
+        string? ustBaslik,
+        string? butonMetin,
+        string? butonLink)
+    {
+        if (baslik.Length > 300)
+            return "Başlık en fazla 300 karakter olabilir.";
+        if ((ustBaslik?.Length ?? 0) > 200)
+            return "Üst başlık en fazla 200 karakter olabilir.";
+        if ((butonMetin?.Length ?? 0) > 120)
+            return "Buton metni en fazla 120 karakter olabilir.";
+        if ((butonLink?.Length ?? 0) > 500)
+            return "Buton linki en fazla 500 karakter olabilir.";
+        return null;
+    }
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

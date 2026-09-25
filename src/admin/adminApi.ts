@@ -62,7 +62,7 @@ export async function adminLogout() {
   }
 }
 
-export async function adminFetch(path: string, init?: RequestInit) {
+export async function adminFetch(path: string, init?: RequestInit): Promise<any> {
   const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -73,18 +73,80 @@ export async function adminFetch(path: string, init?: RequestInit) {
     headers['Content-Type'] = 'application/json'
   }
 
-  const response = await fetch(`${FORM_API_URL}/admin${path}`, {
-    ...init,
-    headers,
-  })
-  const json = await response.json().catch(() => ({}))
+  let response: Response
+  try {
+    response = await fetch(`${FORM_API_URL}/admin${path}`, {
+      ...init,
+      headers,
+    })
+  } catch {
+    throw new Error('Sunucuya bağlanılamadı. API çalışıyor mu kontrol edin.')
+  }
+
+  const raw = await response.text()
+  let json: any = {}
+  if (raw) {
+    try {
+      json = JSON.parse(raw)
+    } catch {
+      json = {}
+    }
+  }
+
   if (response.status === 401) {
-    clearAdminSession()
+    redirectToAdminLogin()
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yapmanız gerekiyor.')
   }
   if (!response.ok || json.success === false) {
-    throw new Error(json.message || `İstek başarısız (${response.status})`)
+    throw new Error(formatAdminError(response.status, json, raw))
   }
   return json
+}
+
+function redirectToAdminLogin() {
+  clearAdminSession()
+  if (typeof window === 'undefined') return
+  const path = window.location.pathname
+  if (path.startsWith('/admin/giris')) return
+  const next = `${path}${window.location.search}`
+  window.location.assign(`/admin/giris?next=${encodeURIComponent(next)}`)
+}
+
+function formatAdminError(status: number, json: any, raw: string) {
+  const message = pickString(json?.message)
+  if (message) return message
+
+  const title = pickString(json?.title)
+  const detail = pickString(json?.detail)
+  if (title && detail) return `${title}: ${detail}`
+  if (detail) return detail
+  if (title) return title
+
+  const errors = json?.errors
+  if (errors && typeof errors === 'object') {
+    const parts = Object.values(errors as Record<string, unknown>)
+      .flatMap((v) => (Array.isArray(v) ? v : [v]))
+      .map((v) => String(v))
+      .filter(Boolean)
+    if (parts.length) return parts.join(' · ')
+  }
+
+  if (status === 413) return 'Dosya çok büyük. Video en fazla 40 MB, görsel en fazla 5 MB olabilir.'
+  if (status === 401) return 'Oturum süresi dolmuş. Lütfen tekrar giriş yapın.'
+  if (status === 403) return 'Bu işlem için yetkiniz yok.'
+  if (status === 404) return 'Kayıt bulunamadı.'
+  if (status === 400) return 'Geçersiz istek. Alanları kontrol edip tekrar deneyin.'
+  if (status >= 500) {
+    if (raw && raw.length < 240 && !raw.trim().startsWith('<')) {
+      return `Sunucu hatası: ${raw.trim()}`
+    }
+    return 'Sunucu hatası oluştu. Dosya boyutu/formatını kontrol edin veya sayfayı yenileyip tekrar deneyin.'
+  }
+  return `İstek başarısız (${status})`
+}
+
+function pickString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 export type HeroSlide = {

@@ -1,19 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { KURUMSAL_NAV, SITE } from '../config'
+import { BASVURU_NAV, KURUMSAL_NAV, SITE } from '../config'
 
 const links = [
   { href: '/#destek', label: 'Destek alanları' },
-  { href: '/basvuru', label: 'Başvuru', route: true },
   { href: '/#footer-contact', label: 'İletişim' },
 ]
+
+type DropKey = 'kurumsal' | 'basvuru' | null
+
+function canHover() {
+  return window.matchMedia('(hover: hover) and (pointer: fine)').matches
+}
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
-  const [kurumsalOpen, setKurumsalOpen] = useState(false)
+  const [dropOpen, setDropOpen] = useState<DropKey>(null)
   const location = useLocation()
-  const dropRef = useRef<HTMLDivElement>(null)
+  const kurumsalRef = useRef<HTMLDivElement>(null)
+  const basvuruRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24 || location.pathname !== '/')
@@ -24,7 +30,7 @@ export function Header() {
 
   useEffect(() => {
     setOpen(false)
-    setKurumsalOpen(false)
+    setDropOpen(null)
   }, [location.pathname])
 
   useEffect(() => {
@@ -38,13 +44,21 @@ export function Header() {
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (!dropRef.current?.contains(e.target as Node)) setKurumsalOpen(false)
+      const t = e.target as Node
+      if (kurumsalRef.current?.contains(t) || basvuruRef.current?.contains(t)) return
+      setDropOpen(null)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
   const kurumsalActive = location.pathname.startsWith('/kurumsal')
+  const basvuruActive = location.pathname.startsWith('/basvuru')
+
+  function closeAll() {
+    setDropOpen(null)
+    setOpen(false)
+  }
 
   return (
     <header className={`site-header ${scrolled ? 'is-scrolled' : ''}`}>
@@ -66,13 +80,22 @@ export function Header() {
         </button>
 
         <nav id="site-nav" className={open ? 'is-open' : ''} aria-label="Ana menü">
-          <div className={`nav-drop${kurumsalOpen ? ' is-open' : ''}`} ref={dropRef}>
+          <div
+            className={`nav-drop${dropOpen === 'kurumsal' ? ' is-open' : ''}`}
+            ref={kurumsalRef}
+            onMouseEnter={() => {
+              if (canHover()) setDropOpen('kurumsal')
+            }}
+            onMouseLeave={() => {
+              if (canHover()) setDropOpen((v) => (v === 'kurumsal' ? null : v))
+            }}
+          >
             <button
               type="button"
               className={`nav-drop-btn${kurumsalActive ? ' is-active' : ''}`}
-              aria-expanded={kurumsalOpen}
+              aria-expanded={dropOpen === 'kurumsal'}
               aria-haspopup="true"
-              onClick={() => setKurumsalOpen((v) => !v)}
+              onClick={() => setDropOpen((v) => (v === 'kurumsal' ? null : 'kurumsal'))}
             >
               Kurumsal
               <span className="nav-drop-chevron" aria-hidden="true">
@@ -81,33 +104,57 @@ export function Header() {
             </button>
             <div className="nav-drop-menu" role="menu">
               {KURUMSAL_NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  role="menuitem"
-                  onClick={() => {
-                    setKurumsalOpen(false)
-                    setOpen(false)
-                  }}
-                >
+                <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
                   {item.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          {links.map((link) =>
-            link.route ? (
-              <Link key={link.href} to={link.href} onClick={() => setOpen(false)}>
-                {link.label}
-              </Link>
-            ) : (
-              <a key={link.href} href={link.href} onClick={() => setOpen(false)}>
-                {link.label}
-              </a>
-            ),
-          )}
-          <Link className="btn btn-small" to="/basvuru/form" onClick={() => setOpen(false)}>
+          {links[0] ? (
+            <a href={links[0].href} onClick={() => setOpen(false)}>
+              {links[0].label}
+            </a>
+          ) : null}
+
+          <div
+            className={`nav-drop${dropOpen === 'basvuru' ? ' is-open' : ''}`}
+            ref={basvuruRef}
+            onMouseEnter={() => {
+              if (canHover()) setDropOpen('basvuru')
+            }}
+            onMouseLeave={() => {
+              if (canHover()) setDropOpen((v) => (v === 'basvuru' ? null : v))
+            }}
+          >
+            <button
+              type="button"
+              className={`nav-drop-btn${basvuruActive ? ' is-active' : ''}`}
+              aria-expanded={dropOpen === 'basvuru'}
+              aria-haspopup="true"
+              onClick={() => setDropOpen((v) => (v === 'basvuru' ? null : 'basvuru'))}
+            >
+              Burs
+              <span className="nav-drop-chevron" aria-hidden="true">
+                ▾
+              </span>
+            </button>
+            <div className="nav-drop-menu" role="menu">
+              {BASVURU_NAV.map((item) => (
+                <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {links[1] ? (
+            <a href={links[1].href} onClick={() => setOpen(false)}>
+              {links[1].label}
+            </a>
+          ) : null}
+
+          <Link className="btn btn-small" to="/basvuru/form" onClick={closeAll}>
             Başvuru yap
           </Link>
         </nav>

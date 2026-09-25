@@ -69,4 +69,30 @@ public static class ApplicationMailComposer
 
     public const string ApprovalSms =
         "Anadolu Gucbirligi Vakfi: Basvurunuz onaylanmistir. En kisa surede sizinle iletisime gecilecektir.";
+
+    public static string BuildRejectionHtml(string? adSoyad)
+    {
+        var ad = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim());
+        return $"""
+            <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.55">
+              <p>Sayın {ad},</p>
+              <p>Üzgünüz; başvurunuz <strong>Anadolu Güçbirliği Vakfı</strong> tarafından <strong>olumsuz</strong> sonuçlandırılmıştır.</p>
+              <p>İlginiz için teşekkür eder, gelecekteki başvurularınızda başarılar dileriz.</p>
+              <p>Saygılarımızla,<br/>Anadolu Güçbirliği Vakfı</p>
+            </div>
+            """;
+    }
+
+    public static string BuildRejectionText(string? adSoyad)
+    {
+        var ad = string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim();
+        return
+            $"Sayın {ad},\n\n" +
+            "Üzgünüz; başvurunuz Anadolu Güçbirliği Vakfı tarafından olumsuz sonuçlandırılmıştır.\n" +
+            "İlginiz için teşekkür eder, gelecekteki başvurularınızda başarılar dileriz.\n\n" +
+            "Saygılarımızla,\nAnadolu Güçbirliği Vakfı";
+    }
+
+    public const string RejectionSms =
+        "Anadolu Gucbirligi Vakfi: Uzgunuz, basvurunuz olumsuz sonuclanmistir. Ilginiz icin tesekkur ederiz.";
 }

@@ -248,10 +248,16 @@ public static class AdminEndpoints
         string? notifyMessage = null;
         var becameApproved = !string.Equals(previous, "Onaylandi", StringComparison.OrdinalIgnoreCase)
             && string.Equals(durum, "Onaylandi", StringComparison.OrdinalIgnoreCase);
+        var becameRejected = !string.Equals(previous, "Reddedildi", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(durum, "Reddedildi", StringComparison.OrdinalIgnoreCase);
 
         if (becameApproved)
         {
             notifyMessage = await NotifyApprovalAsync(entity, emailSender, sms, emailOptions.Value, logger, ct);
+        }
+        else if (becameRejected)
+        {
+            notifyMessage = await NotifyRejectionAsync(entity, emailSender, sms, emailOptions.Value, logger, ct);
         }
 
         return Results.Ok(new
@@ -309,6 +315,56 @@ public static class AdminEndpoints
         if (mailOk && smsOk) return "Onay e-postası ve SMS gönderildi.";
         if (mailOk) return "Onay e-postası gönderildi; SMS gönderilemedi.";
         if (smsOk) return "Onay SMS’i gönderildi; e-posta gönderilemedi.";
+        return "Durum güncellendi ancak bildirim gönderilemedi.";
+    }
+
+    private static async Task<string> NotifyRejectionAsync(
+        AgbBasvuru entity,
+        IEmailSender emailSender,
+        ISmsSender sms,
+        EmailOptions email,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var adSoyad = $"{entity.Ad} {entity.Soyad}".Trim();
+        var mailOk = false;
+        var smsOk = false;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(entity.Eposta))
+            {
+                await emailSender.SendAsync(
+                    entity.Eposta!,
+                    "Başvuru sonucunuz — Anadolu Güçbirliği Vakfı",
+                    ApplicationMailComposer.BuildRejectionHtml(adSoyad),
+                    ApplicationMailComposer.BuildRejectionText(adSoyad),
+                    null,
+                    ct);
+                mailOk = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Red e-postası gönderilemedi: {Id}", entity.Id);
+        }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(entity.Telefon))
+            {
+                await sms.SendAsync(entity.Telefon, ApplicationMailComposer.RejectionSms, ct);
+                smsOk = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Red SMS’i gönderilemedi: {Id}", entity.Id);
+        }
+
+        if (mailOk && smsOk) return "Red bildirimi e-posta ve SMS ile gönderildi.";
+        if (mailOk) return "Red e-postası gönderildi; SMS gönderilemedi.";
+        if (smsOk) return "Red SMS’i gönderildi; e-posta gönderilemedi.";
         return "Durum güncellendi ancak bildirim gönderilemedi.";
     }
 

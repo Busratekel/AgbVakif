@@ -9,41 +9,68 @@ import {
   getAdminUser,
   type HeroSlide,
 } from './adminApi'
+import { isHeroVideo } from '../heroMedia'
+import { AdminToastProvider, useAdminToast } from './AdminToast'
 
 export function AdminShell() {
   const token = getAdminToken()
   if (!token) return <Navigate to="/admin/giris" replace />
 
   return (
-    <div className="admin-app">
-      <header className="admin-top">
-        <div className="shell admin-top-inner">
-          <Link to="/admin" className="admin-brand">AGB Panel</Link>
-          <nav className="admin-nav">
-            <Link to="/admin">Başvurular</Link>
-            <Link to="/admin/hero">Hero / Duyuru</Link>
-            <Link to="/admin/ayarlar">Ayarlar</Link>
-            <Link to="/admin/kullanicilar">Kullanıcılar</Link>
-            <Link to="/" className="muted">Siteye dön</Link>
-            <button
-              type="button"
-              className="linkish"
-              onClick={() => {
-                void adminLogout().then(() => {
-                  window.location.href = '/admin/giris'
-                })
-              }}
-            >
-              Çıkış
-            </button>
-          </nav>
-        </div>
-      </header>
-      <main className="shell admin-main">
-        <Outlet />
-      </main>
-    </div>
+    <AdminToastProvider>
+      <AdminSessionGuard />
+      <div className="admin-app">
+        <header className="admin-top">
+          <div className="shell admin-top-inner">
+            <Link to="/admin" className="admin-brand">AGB Panel</Link>
+            <nav className="admin-nav">
+              <Link to="/admin">Başvurular</Link>
+              <Link to="/admin/hero">Hero / Duyuru</Link>
+              <Link to="/admin/ayarlar">Ayarlar</Link>
+              <Link to="/admin/kullanicilar">Kullanıcılar</Link>
+              <Link to="/" className="muted">Siteye dön</Link>
+              <button
+                type="button"
+                className="linkish"
+                onClick={() => {
+                  void adminLogout().then(() => {
+                    window.location.href = '/admin/giris'
+                  })
+                }}
+              >
+                Çıkış
+              </button>
+            </nav>
+          </div>
+        </header>
+        <main className="shell admin-main">
+          <Outlet />
+        </main>
+      </div>
+    </AdminToastProvider>
   )
+}
+
+/** Oturum düştüyse paneli açık bırakmaz; periyodik /me kontrolü. */
+function AdminSessionGuard() {
+  useEffect(() => {
+    let cancelled = false
+    async function check() {
+      if (!getAdminToken() || cancelled) return
+      try {
+        await adminFetch('/me')
+      } catch {
+        // adminFetch 401'de zaten giriş sayfasına yönlendirir
+      }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+  return null
 }
 
 export function AdminLogin() {
@@ -59,7 +86,13 @@ export function AdminLogin() {
     setLoading(true)
     try {
       await adminLogin(userName.trim(), password)
-      navigate('/admin', { replace: true })
+      const params = new URLSearchParams(window.location.search)
+      const next = params.get('next')
+      const target =
+        next && next.startsWith('/admin') && !next.startsWith('/admin/giris')
+          ? next
+          : '/admin'
+      navigate(target, { replace: true })
     } catch (err) {
       clearAdminSession()
       setError(err instanceof Error ? err.message : 'Giriş başarısız')
@@ -112,6 +145,7 @@ export function AdminLogin() {
 }
 
 export function AdminBasvuruList() {
+  const toast = useAdminToast()
   const [q, setQ] = useState('')
   const [durum, setDurum] = useState('')
   const [page, setPage] = useState(1)
@@ -136,7 +170,9 @@ export function AdminBasvuruList() {
       setTotal(json.total ?? 0)
       setPage(json.page ?? nextPage)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Liste alınamadı')
+      const msg = err instanceof Error ? err.message : 'Liste alınamadı'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -241,10 +277,10 @@ export function AdminBasvuruList() {
 
 export function AdminBasvuruDetail() {
   const { id = '' } = useParams()
+  const toast = useAdminToast()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [durum, setDurum] = useState('')
   const [error, setError] = useState('')
-  const [ok, setOk] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -259,7 +295,11 @@ export function AdminBasvuruDetail() {
           setDurum(String(json.data?.durum ?? ''))
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Detay alınamadı')
+        const msg = err instanceof Error ? err.message : 'Detay alınamadı'
+        if (!cancelled) {
+          setError(msg)
+          toast.error(msg)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -270,17 +310,19 @@ export function AdminBasvuruDetail() {
   async function saveDurum() {
     setSaving(true)
     setError('')
-    setOk('')
     try {
       const json = await adminFetch(`/basvurular/${id}/durum`, {
         method: 'PATCH',
         body: JSON.stringify({ durum }),
       })
       setData(json.data)
-      if (json.notifyMessage) setOk(String(json.notifyMessage))
-      else setOk('Durum güncellendi.')
+      toast.success(
+        json.notifyMessage ? String(json.notifyMessage) : 'Durum güncellendi.',
+      )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Durum güncellenemedi')
+      const msg = err instanceof Error ? err.message : 'Durum güncellenemedi'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -321,7 +363,6 @@ export function AdminBasvuruDetail() {
       </div>
 
       {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
-      {ok ? <div className="form-alert is-success"><p>{ok}</p></div> : null}
 
       <div className="wizard-card admin-detail-actions">
         <label>
@@ -336,7 +377,7 @@ export function AdminBasvuruDetail() {
           {saving ? 'Kaydediliyor…' : 'Durumu kaydet'}
         </button>
         <p className="field-hint" style={{ flexBasis: '100%', margin: 0 }}>
-          Durumu <strong>Onaylandi</strong> yaptığınızda başvuru sahibine e-posta ve SMS gönderilir.
+          Durumu <strong>Onaylandi</strong> veya <strong>Reddedildi</strong> yaptığınızda başvuru sahibine e-posta ve SMS gönderilir.
         </p>
       </div>
 
@@ -426,9 +467,9 @@ export function AdminBasvuruDetail() {
 }
 
 export function AdminConfig() {
+  const toast = useAdminToast()
   const [items, setItems] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
-  const [ok, setOk] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -439,7 +480,11 @@ export function AdminConfig() {
         const json = await adminFetch('/config')
         if (!cancelled) setItems(json.items ?? {})
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Ayarlar alınamadı')
+        const msg = err instanceof Error ? err.message : 'Ayarlar alınamadı'
+        if (!cancelled) {
+          setError(msg)
+          toast.error(msg)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -451,16 +496,17 @@ export function AdminConfig() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    setOk('')
     try {
       const json = await adminFetch('/config', {
         method: 'PUT',
         body: JSON.stringify({ items }),
       })
       setItems(json.items ?? items)
-      setOk('Ayarlar kaydedildi.')
+      toast.success('Ayarlar kaydedildi.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kayıt başarısız')
+      const msg = err instanceof Error ? err.message : 'Kayıt başarısız'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -514,7 +560,6 @@ export function AdminConfig() {
       {loading ? <p>Yükleniyor…</p> : (
         <form className="admin-config-form" onSubmit={(e) => void save(e)}>
           {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
-          {ok ? <div className="form-alert is-success"><p>{ok}</p></div> : null}
 
           <section className="admin-settings-card">
             <header className="admin-settings-head">
@@ -588,6 +633,7 @@ export function AdminConfig() {
 }
 
 export function AdminUsers() {
+  const toast = useAdminToast()
   const [adGroups, setAdGroups] = useState<string[]>([])
   const [adDomain, setAdDomain] = useState('')
   const [configUsers, setConfigUsers] = useState<{ userName: string; source: string; canDelete: boolean }[]>([])
@@ -600,7 +646,6 @@ export function AdminUsers() {
   }[]>([])
   const [newUser, setNewUser] = useState('')
   const [error, setError] = useState('')
-  const [ok, setOk] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -614,7 +659,9 @@ export function AdminUsers() {
       setConfigUsers(json.configUsers ?? [])
       setPanelUsers(json.panelUsers ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Liste alınamadı')
+      const msg = err instanceof Error ? err.message : 'Liste alınamadı'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -628,17 +675,18 @@ export function AdminUsers() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    setOk('')
     try {
       await adminFetch('/kullanicilar', {
         method: 'POST',
         body: JSON.stringify({ userName: newUser.trim() }),
       })
       setNewUser('')
-      setOk('Kullanıcı eklendi.')
+      toast.success('Kullanıcı eklendi.')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Eklenemedi')
+      const msg = err instanceof Error ? err.message : 'Eklenemedi'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -647,13 +695,14 @@ export function AdminUsers() {
   async function removeUser(userName: string) {
     if (!confirm(`${userName} panel listesinden silinsin mi?`)) return
     setError('')
-    setOk('')
     try {
       await adminFetch(`/kullanicilar/${encodeURIComponent(userName)}`, { method: 'DELETE' })
-      setOk('Kullanıcı silindi.')
+      toast.success('Kullanıcı silindi.')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Silinemedi')
+      const msg = err instanceof Error ? err.message : 'Silinemedi'
+      setError(msg)
+      toast.error(msg)
     }
   }
 
@@ -667,7 +716,6 @@ export function AdminUsers() {
       </p>
 
       {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
-      {ok ? <div className="form-alert is-success"><p>{ok}</p></div> : null}
 
       <div className="wizard-card" style={{ marginBottom: '1rem' }}>
         <h3 style={{ marginTop: 0 }}>AD yetkisi</h3>
@@ -766,6 +814,7 @@ const emptyHeroForm = (): HeroFormState => ({
 
 const HERO_LINK_OPTIONS = [
   { value: '/basvuru/form', label: 'Burs başvurusu (form)' },
+  { value: '/basvuru/istatistikler', label: 'İstatistikler' },
   { value: '/basvuru', label: 'Başvuru genel bilgilendirme' },
   { value: '/basvuru/sss', label: 'Burs SSS' },
   { value: '/basvuru/belgeler', label: 'Gerekli belgeler' },
@@ -788,6 +837,7 @@ function heroLinkMode(link: string) {
 }
 
 export function AdminHero() {
+  const toast = useAdminToast()
   const [items, setItems] = useState<HeroSlide[]>([])
   const [form, setForm] = useState<HeroFormState>(emptyHeroForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -795,7 +845,6 @@ export function AdminHero() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [ok, setOk] = useState('')
 
   async function load() {
     setLoading(true)
@@ -804,7 +853,9 @@ export function AdminHero() {
       const json = await adminFetch('/hero')
       setItems(json.items ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Liste alınamadı')
+      const msg = err instanceof Error ? err.message : 'Liste alınamadı'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -837,14 +888,12 @@ export function AdminHero() {
       resim: null,
       resimKaldir: false,
     })
-    setOk('')
     setError('')
   }
 
   function resetForm() {
     setEditingId(null)
     setForm(emptyHeroForm())
-    setOk('')
     setError('')
   }
 
@@ -878,19 +927,20 @@ export function AdminHero() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    setOk('')
     try {
       if (editingId) {
         await adminFetch(`/hero/${editingId}`, { method: 'PUT', body: buildFormData(form) })
-        setOk('Slayt güncellendi.')
+        toast.success('Slayt güncellendi.')
       } else {
         await adminFetch('/hero', { method: 'POST', body: buildFormData(form) })
-        setOk('Slayt eklendi.')
+        toast.success('Slayt eklendi.')
       }
       resetForm()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kaydedilemedi')
+      const msg = err instanceof Error ? err.message : 'Kaydedilemedi'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -898,33 +948,35 @@ export function AdminHero() {
 
   async function toggleAktif(slide: HeroSlide) {
     setError('')
-    setOk('')
     try {
       await adminFetch(`/hero/${slide.id}`, {
         method: 'PUT',
         body: buildFormData(slide, !slide.aktif),
       })
-      setOk(slide.aktif ? 'Slayt pasife alındı.' : 'Slayt yayına alındı.')
+      toast.success(slide.aktif ? 'Slayt pasife alındı.' : 'Slayt yayına alındı.')
       if (editingId === slide.id) {
         setForm((f) => ({ ...f, aktif: !slide.aktif }))
       }
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Durum güncellenemedi')
+      const msg = err instanceof Error ? err.message : 'Durum güncellenemedi'
+      setError(msg)
+      toast.error(msg)
     }
   }
 
   async function remove(id: string) {
     if (!confirm('Bu slayt silinsin mi?')) return
     setError('')
-    setOk('')
     try {
       await adminFetch(`/hero/${id}`, { method: 'DELETE' })
-      setOk('Slayt silindi.')
+      toast.success('Slayt silindi.')
       if (editingId === id) resetForm()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Silinemedi')
+      const msg = err instanceof Error ? err.message : 'Silinemedi'
+      setError(msg)
+      toast.error(msg)
     }
   }
 
@@ -940,7 +992,6 @@ export function AdminHero() {
       </p>
 
       {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
-      {ok ? <div className="form-alert is-success"><p>{ok}</p></div> : null}
 
       <form className="wizard-card admin-settings-card" onSubmit={(e) => void save(e)}>
         <header className="admin-settings-head">
@@ -955,6 +1006,7 @@ export function AdminHero() {
               onChange={(e) => setForm((f) => ({ ...f, ustBaslik: e.target.value }))}
               placeholder="örn. DUYURU · 2026"
             />
+            <small className="field-hint">Sitede en üstte, küçük altın renkli satır.</small>
           </label>
           <label>
             <span>Sıra</span>
@@ -969,7 +1021,9 @@ export function AdminHero() {
             <input
               value={form.baslik}
               onChange={(e) => setForm((f) => ({ ...f, baslik: e.target.value }))}
+              placeholder="örn. Birlikte Çok Daha Güçlüyüz"
             />
+            <small className="field-hint">Sitede büyük ana yazı. Ana mesajı buraya yazın.</small>
           </label>
           <label className="full">
             <span>Açıklama</span>
@@ -977,7 +1031,9 @@ export function AdminHero() {
               rows={3}
               value={form.aciklama}
               onChange={(e) => setForm((f) => ({ ...f, aciklama: e.target.value }))}
+              placeholder="İsteğe bağlı kısa destek metni"
             />
+            <small className="field-hint">Başlığın altında, daha küçük paragraf. Boş bırakılabilir.</small>
           </label>
           <label>
             <span>Buton metni (isteğe bağlı)</span>
@@ -1023,11 +1079,11 @@ export function AdminHero() {
             </label>
           ) : null}
           <label className="full">
-            <span>Arka plan görseli</span>
+            <span>Arka plan (görsel veya video)</span>
             <input
               key={`hero-resim-${editingId ?? 'new'}-${form.resimKaldir ? 'off' : 'on'}-${form.resim?.name ?? 'empty'}`}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
+              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
@@ -1036,12 +1092,25 @@ export function AdminHero() {
                 }))
               }
             />
+            <small className="field-hint">
+              Görsel: jpg/png/webp/gif (max 5 MB). Video: mp4/webm (max 40 MB).
+            </small>
           </label>
         </div>
 
         {(previewUrl || (editingSlide?.resimUrl && !form.resimKaldir)) ? (
           <div className="admin-hero-preview">
-            <img src={previewUrl || editingSlide?.resimUrl || ''} alt="" />
+            {isHeroVideo(previewUrl || editingSlide?.resimUrl) || form.resim?.type.startsWith('video/') ? (
+              <video
+                src={previewUrl || editingSlide?.resimUrl || ''}
+                muted
+                loop
+                playsInline
+                autoPlay
+              />
+            ) : (
+              <img src={previewUrl || editingSlide?.resimUrl || ''} alt="" />
+            )}
             <button
               type="button"
               className="linkish admin-hero-remove"
@@ -1053,7 +1122,7 @@ export function AdminHero() {
                 }))
               }
             >
-              Resmi kaldır
+              Medyayı kaldır
             </button>
           </div>
         ) : null}
@@ -1090,7 +1159,7 @@ export function AdminHero() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Görsel</th>
+              <th>Medya</th>
               <th>Başlık</th>
               <th>Sıra</th>
               <th>Durum</th>
@@ -1107,7 +1176,11 @@ export function AdminHero() {
                 <tr key={s.id}>
                   <td>
                     {s.resimUrl ? (
-                      <img className="admin-hero-thumb" src={s.resimUrl} alt="" />
+                      isHeroVideo(s.resimUrl) ? (
+                        <video className="admin-hero-thumb" src={s.resimUrl} muted playsInline />
+                      ) : (
+                        <img className="admin-hero-thumb" src={s.resimUrl} alt="" />
+                      )
                     ) : (
                       <span className="muted">—</span>
                     )}

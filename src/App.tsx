@@ -11,6 +11,7 @@ import { BasvuruHub } from './pages/BasvuruHub'
 import { BasvuruSss } from './pages/BasvuruSss'
 import { BasvuruForm } from './pages/BasvuruForm'
 import { BasvuruBelgeler } from './pages/BasvuruBelgeler'
+import { BasvuruIstatistikler } from './pages/BasvuruIstatistikler'
 import { KurumsalHakkinda } from './pages/KurumsalHakkinda'
 import { KurumsalTarihce } from './pages/KurumsalTarihce'
 import { KurumsalCeo } from './pages/KurumsalCeo'
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/kurumsal/yonetim-kurulu" element={<KurumsalYonetim />} />
           <Route path="/basvuru" element={<BasvuruLayout />}>
             <Route index element={<BasvuruHub />} />
+            <Route path="istatistikler" element={<BasvuruIstatistikler />} />
             <Route path="sss" element={<BasvuruSss />} />
             <Route path="belgeler" element={<BasvuruBelgeler />} />
           </Route>
