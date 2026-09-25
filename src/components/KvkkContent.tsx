@@ -6,10 +6,10 @@ export const CONTROLLER = {
   shortName: 'Vakıf',
   websiteLabel: 'www.anadolugucbirligivakfi.org',
   websiteHref: 'https://www.anadolugucbirligivakfi.org',
-  phones: CONTACT.phones,
-  kep: CONTACT.eTebligat || '—',
+  phones: [CONTACT.phone],
+  kep: '—',
   kvkkEmail: APPLICATION_EMAIL,
-  address: CONTACT.address,
+  address: CONTACT.addressLines.join(', '),
 } as const
 
 export function KvkkContent() {

@@ -1,48 +1,36 @@
 using System.Net;
-using System.Text;
-using AgbVakif.Api.Models;
+using AgbVakif.Api.Data;
 
 namespace AgbVakif.Api.Services;
 
 public static class ApplicationMailComposer
 {
-    public static string BuildText(ApplicationRequest request)
+    /// <summary>Vakıf ekibine kısa bildirim (detay panelden bakılacak).</summary>
+    public static string BuildStaffNoticeText(AgbBasvuru e)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Anadolu Güçbirliği Vakfı — Yeni destek başvurusu");
-        sb.AppendLine();
-        sb.AppendLine($"Ad Soyad: {request.AdSoyad}");
-        sb.AppendLine($"Telefon: {request.Telefon}");
-        sb.AppendLine($"E-posta: {request.Eposta}");
-        sb.AppendLine($"Talep Tutarı: {request.TalepTutari}");
-        sb.AppendLine($"Başvuru Sahibi Statüsü: {request.Statu}");
-        sb.AppendLine($"Destek Kategorisi: {request.Kategori}");
-        sb.AppendLine();
-        sb.AppendLine("Talep Özeti:");
-        sb.AppendLine(request.TalepOzeti);
-        sb.AppendLine();
-        sb.AppendLine("KVKK Onayı: Evet");
-        return sb.ToString();
+        var ad = $"{e.Ad} {e.Soyad}".Trim();
+        return
+            "Anadolu Güçbirliği Vakfı\n\n" +
+            "Yeni bir burs / destek başvurusu alındı.\n\n" +
+            $"Başvuran: {ad}\n" +
+            $"Telefon: {e.Telefon}\n" +
+            $"E-posta: {e.Eposta}\n\n" +
+            "Başvuru detaylarını panelden inceleyebilirsiniz.";
     }
 
-    public static string BuildHtml(ApplicationRequest request)
+    public static string BuildStaffNoticeHtml(AgbBasvuru e)
     {
-        static string E(string? value) => WebUtility.HtmlEncode(value ?? "");
+        static string Enc(string? value) => WebUtility.HtmlEncode(value ?? "");
+        var ad = Enc($"{e.Ad} {e.Soyad}".Trim());
 
         return $"""
-            <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.5">
-              <h2 style="margin:0 0 12px">Anadolu Güçbirliği Vakfı</h2>
-              <p style="margin:0 0 18px;color:#5c6f67">Yeni destek başvurusu</p>
-              <table style="border-collapse:collapse;width:100%;max-width:640px">
-                <tr><td style="padding:8px;border:1px solid #d7ddd9;width:38%"><strong>Ad Soyad</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.AdSoyad)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>Telefon</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.Telefon)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>E-posta</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.Eposta)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>Talep Tutarı</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.TalepTutari)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>Başvuru Sahibi Statüsü</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.Statu)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>Destek Kategorisi</strong></td><td style="padding:8px;border:1px solid #d7ddd9">{E(request.Kategori)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9;vertical-align:top"><strong>Talep Özeti</strong></td><td style="padding:8px;border:1px solid #d7ddd9;white-space:pre-wrap">{E(request.TalepOzeti)}</td></tr>
-                <tr><td style="padding:8px;border:1px solid #d7ddd9"><strong>KVKK Onayı</strong></td><td style="padding:8px;border:1px solid #d7ddd9">Evet</td></tr>
-              </table>
+            <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.55">
+              <h2 style="margin:0 0 8px">Anadolu Güçbirliği Vakfı</h2>
+              <p style="margin:0 0 16px">Yeni bir burs / destek başvurusu alındı.</p>
+              <p style="margin:0 0 8px"><strong>Başvuran:</strong> {ad}</p>
+              <p style="margin:0 0 8px"><strong>Telefon:</strong> {Enc(e.Telefon)}</p>
+              <p style="margin:0 0 16px"><strong>E-posta:</strong> {Enc(e.Eposta)}</p>
+              <p style="margin:0;color:#5c6f67">Detaylar panel üzerinden görüntülenecektir.</p>
             </div>
             """;
     }
@@ -55,4 +43,30 @@ public static class ApplicationMailComposer
           <p>Saygılarımızla,<br/>Anadolu Güçbirliği Vakfı</p>
         </div>
         """;
+
+    public static string BuildApprovalHtml(string? adSoyad)
+    {
+        var ad = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim());
+        return $"""
+            <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.55">
+              <p>Sayın {ad},</p>
+              <p>Başvurunuz <strong>Anadolu Güçbirliği Vakfı</strong> tarafından <strong>onaylanmıştır</strong>.</p>
+              <p>En kısa sürede sizinle iletişime geçilecektir.</p>
+              <p>Saygılarımızla,<br/>Anadolu Güçbirliği Vakfı</p>
+            </div>
+            """;
+    }
+
+    public static string BuildApprovalText(string? adSoyad)
+    {
+        var ad = string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim();
+        return
+            $"Sayın {ad},\n\n" +
+            "Başvurunuz Anadolu Güçbirliği Vakfı tarafından onaylanmıştır.\n" +
+            "En kısa sürede sizinle iletişime geçilecektir.\n\n" +
+            "Saygılarımızla,\nAnadolu Güçbirliği Vakfı";
+    }
+
+    public const string ApprovalSms =
+        "Anadolu Gucbirligi Vakfi: Basvurunuz onaylanmistir. En kisa surede sizinle iletisime gecilecektir.";
 }

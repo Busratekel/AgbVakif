@@ -1,4 +1,4 @@
-import { EVALUATION_STEPS, SUPPORT_AREAS } from '../config'
+import {SUPPORT_AREAS } from '../config'
 
 export function SupportAreas() {
   return (
@@ -32,15 +32,6 @@ export function SupportAreas() {
             </li>
           ))}
         </ul>
-
-        <div className="eval-strip reveal">
-          <h3>Değerlendirme özeti</h3>
-          <ol>
-            {EVALUATION_STEPS.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </div>
       </div>
     </section>
   )

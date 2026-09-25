@@ -38,20 +38,105 @@ public sealed class AgbBasvuru
     [MaxLength(60)]
     public string? Ilce { get; set; }
 
+    public string? AcikAdres { get; set; }
+
     [MaxLength(120)]
     public string? Statu { get; set; }
 
     [MaxLength(120)]
     public string? Kategori { get; set; }
 
-    [MaxLength(60)]
-    public string? TalepTutari { get; set; }
+    [MaxLength(80)]
+    public string? BabaAdi { get; set; }
 
-    public string? TalepOzeti { get; set; }
+    [MaxLength(10)]
+    public string? BabaSagMi { get; set; }
+
+    [MaxLength(80)]
+    public string? BabaMeslegi { get; set; }
+
+    [MaxLength(40)]
+    public string? BabaAylikGelir { get; set; }
+
+    [MaxLength(80)]
+    public string? AnneAdi { get; set; }
+
+    [MaxLength(10)]
+    public string? AnneSagMi { get; set; }
+
+    [MaxLength(80)]
+    public string? AnneMeslegi { get; set; }
+
+    [MaxLength(40)]
+    public string? AnneAylikGelir { get; set; }
+
+    [MaxLength(10)]
+    public string? AnneBabaBirlikte { get; set; }
+
+    [MaxLength(5)]
+    public string? KardesIlkokul { get; set; }
+
+    [MaxLength(5)]
+    public string? KardesYuksek { get; set; }
+
+    [MaxLength(60)]
+    public string? OturdugunuzEv { get; set; }
+
+    [MaxLength(10)]
+    public string? AracVarMi { get; set; }
+
+    [MaxLength(120)]
+    public string? AracMarkaModel { get; set; }
+
+    [MaxLength(80)]
+    public string? OzelDurumTipi { get; set; }
+
+    public string? OzelDurum { get; set; }
+
+    [MaxLength(160)]
+    public string? Universite { get; set; }
+
+    [MaxLength(160)]
+    public string? Fakulte { get; set; }
+
+    [MaxLength(160)]
+    public string? Bolum { get; set; }
+
+    [MaxLength(10)]
+    public string? KayitYili { get; set; }
+
+    [MaxLength(20)]
+    public string? Sinif { get; set; }
+
+    [MaxLength(10)]
+    public string? BitirmeYili { get; set; }
+
+    [MaxLength(10)]
+    public string? Hazirlik { get; set; }
+
+    [MaxLength(10)]
+    public string? AiledenUzakta { get; set; }
+
+    [MaxLength(60)]
+    public string? KonaklamaDurumu { get; set; }
+
+    [MaxLength(40)]
+    public string? KonaklamaUcreti { get; set; }
+
+    [MaxLength(80)]
+    public string? YksSiralamasi { get; set; }
+
+    [MaxLength(20)]
+    public string? NotOrtalamasi { get; set; }
+
+    [MaxLength(10)]
+    public string? BaskaBurs { get; set; }
 
     public bool BeyanCalismiyor { get; set; }
+    public bool BeyanEvliDegil { get; set; }
+    public bool BeyanDisiplin { get; set; }
     public bool BeyanAdliSicil { get; set; }
-    public bool BeyanBilgiDogru { get; set; }
+    public bool BeyanOrgunOgretim { get; set; }
     public bool KvkkOnay { get; set; }
 
     /// <summary>Taslak | Gonderildi | GeriCekildi</summary>

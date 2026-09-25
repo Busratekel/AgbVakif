@@ -23,11 +23,28 @@ npm run dev
 - Site: http://localhost:5173  
 - API: http://localhost:5000  
 
+## Başvuru dönemi (dinamik)
+
+Tablo: `BoytasWH.AGB_Vakif_Config` (AGB’ye özel ayarlar; Graph hâlâ `PB_Config`).
+
+| ConfigKey | Örnek |
+|-----------|--------|
+| `BasvuruBaslik` | `2026–2027 Lisans Başvurusu` |
+| `BasvuruBaslikNot` | Üst başlığın altındaki serbest not |
+| `BasvuruFormBaslik` | `Lisans Burs Başvurusu Formu` |
+| `BasvuruFormBaslikNot` | Form başlığının altındaki açıklama notu |
+| `BasvuruBaslangic` | `2026-09-07T09:00:00` |
+| `BasvuruBitis` | `2026-09-30T17:00:00` |
+
+API açılışında `Create_AGB_Vakif_Config.sql` çalışır (tablo + yoksa seed). Endpoint: `GET /api/basvuru/donem`
+
+
+
 ## SMS
 
-Şimdilik `DevelopmentSmsSender` kodu **API log’una** yazar. Development yanıtında `debugOtp` da döner (test için).
+`Sms:Provider`: `Turatel` (Bellona OTP / Turatel XML) | `Bms` (Erciyes) | `Development` (sadece log)
 
-Gerçek SMS (Netgsm vb.) bağlanınca `ISmsSender` implementasyonu değiştirilir.
+Turatel ayarları `appsettings` → `Sms:Turatel`. Gerçek gönderimde `ExposeDebugOtp: false`.
 
 ## Graph e-posta
 

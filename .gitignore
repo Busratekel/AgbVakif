@@ -7,23 +7,52 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies & frontend build
 node_modules
 dist
 dist-ssr
 *.local
 
-# .NET
-api/bin
-api/obj
-api/appsettings.*.local.json
+# .NET / native binaries & build output
+**/bin/
+**/obj/
+artifacts/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.obj
+*.o
+*.so
+*.dylib
+*.nupkg
+*.snupkg
+*.user
+*.rsuser
+project.lock.json
+*.DotSettings.user
 
-# Editor
+# Runtime / publish leftovers
+*.deps.json
+*.runtimeconfig.json
+*.runtimeconfig.dev.json
+*.staticwebassets.endpoints.json
+
+# Local secrets
+api/appsettings.*.local.json
+**/appsettings.*.local.json
+
+# Uploaded media
+api/Uploads/
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
 *.sw?

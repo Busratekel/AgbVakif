@@ -1,0 +1,47 @@
+import { KURUMSAL_BASKAN } from '../config'
+import { PageBanner } from '../components/PageBanner'
+
+export function KurumsalBaskan() {
+  return (
+    <>
+      <PageBanner
+        title="Başkan’ın mesajı"
+        crumbs={[
+          { label: 'Kurumsal', to: '/kurumsal/hakkinda' },
+          { label: "Başkan’ın mesajı" },
+        ]}
+      />
+      <section className="section kurumsal-section">
+        <div className="shell kurumsal-message">
+          <aside className="kurumsal-person">
+            {KURUMSAL_BASKAN.photo ? (
+              <img
+                className="kurumsal-person-photo"
+                src={KURUMSAL_BASKAN.photo}
+                alt={KURUMSAL_BASKAN.name}
+              />
+            ) : (
+              <div className="kurumsal-person-photo" aria-hidden="true" />
+            )}
+            <strong>{KURUMSAL_BASKAN.name}</strong>
+            <span>{KURUMSAL_BASKAN.title}</span>
+            <span className="muted">{KURUMSAL_BASKAN.org}</span>
+          </aside>
+          <div className="kurumsal-copy">
+            <p className="kurumsal-greeting">{KURUMSAL_BASKAN.greeting}</p>
+            {KURUMSAL_BASKAN.paragraphs.map((p) => (
+              <p key={p.slice(0, 48)}>{p}</p>
+            ))}
+            <p className="kurumsal-sign">
+              <strong>{KURUMSAL_BASKAN.name}</strong>
+              <br />
+              {KURUMSAL_BASKAN.org}
+              <br />
+              {KURUMSAL_BASKAN.title}
+            </p>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
