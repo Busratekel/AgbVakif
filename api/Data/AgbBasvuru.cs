@@ -155,7 +155,6 @@ public sealed class AgbBasvuru
     public string? BaskaBursMiktari { get; set; }
 
     public bool BeyanCalismiyor { get; set; }
-    public bool BeyanEvliDegil { get; set; }
     public bool BeyanDisiplin { get; set; }
     public bool BeyanAdliSicil { get; set; }
     public bool BeyanOrgunOgretim { get; set; }
