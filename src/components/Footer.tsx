@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom'
-import { BASVURU_NAV, CONTACT, KURUMSAL_NAV, SITE } from '../config'
-import { useKvkk } from './KvkkModal'
+import { BASVURU_NAV, KURUMSAL_NAV, MEDYA_NAV, SITE } from '../config'
+
+const LEGAL_LINKS = [
+  { to: '/yasal/kvkk', label: 'KVKK metni' },
+  { to: '/yasal/gizlilik-politikasi', label: 'Gizlilik politikası' },
+  { to: '/yasal/cerez-politikasi', label: 'Çerez politikası' },
+] as const
 
 export function Footer() {
-  const { openKvkk } = useKvkk()
-
   return (
     <footer className="site-footer" id="footer-contact">
       <div className="shell footer-grid">
@@ -16,6 +19,17 @@ export function Footer() {
           <strong>Kurumsal</strong>
           <ul>
             {KURUMSAL_NAV.map((item) => (
+              <li key={item.to}>
+                <Link to={item.to}>{item.label}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="footer-col">
+          <strong>Medya merkezi</strong>
+          <ul>
+            {MEDYA_NAV.map((item) => (
               <li key={item.to}>
                 <Link to={item.to}>{item.label}</Link>
               </li>
@@ -36,36 +50,28 @@ export function Footer() {
 
         <div className="footer-col">
           <strong>İletişim</strong>
-          <ul className="footer-contact-list">
+          <ul>
             <li>
-              <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
+              <Link to="/iletisim">İletişim bilgileri</Link>
             </li>
             <li>
-              <a href={`tel:${CONTACT.phone.replace(/\s/g, '')}`}>{CONTACT.phone}</a>
-            </li>
-            {CONTACT.addressLines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-            <li>
-              <a
-                className="footer-map-link"
-                href={CONTACT.mapUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Haritada Görüntüleyin
-              </a>
+              <Link to="/basvuru/form">Başvuru formu</Link>
             </li>
           </ul>
         </div>
       </div>
+
       <div className="shell footer-bottom">
         <p className="footer-note">
           © {new Date().getFullYear()} {SITE.name}. Tüm hakları saklıdır.
         </p>
-        <button type="button" className="linkish footer-kvkk" onClick={openKvkk}>
-          KVKK aydınlatma metni
-        </button>
+        <nav className="footer-legal-links" aria-label="Yasal metinler">
+          {LEGAL_LINKS.map((item) => (
+            <Link key={item.to} to={item.to}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </footer>
   )

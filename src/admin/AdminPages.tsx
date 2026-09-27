@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import {
+  adminDownloadBasvuruExcel,
   adminFetch,
   adminLogin,
   adminLogout,
   clearAdminSession,
   getAdminToken,
-  getAdminUser,
   type HeroSlide,
 } from './adminApi'
 import { isHeroVideo } from '../heroMedia'
@@ -152,6 +152,7 @@ export function AdminBasvuruList() {
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<import('./adminApi').AdminBasvuruListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const pageSize = 25
 
@@ -178,6 +179,19 @@ export function AdminBasvuruList() {
     }
   }
 
+  async function exportExcel() {
+    setExporting(true)
+    try {
+      await adminDownloadBasvuruExcel({ q, durum })
+      toast.success('Excel indirildi.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Excel indirilemedi'
+      toast.error(msg)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   useEffect(() => {
     void load(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,7 +203,17 @@ export function AdminBasvuruList() {
     <section className="admin-section">
       <div className="admin-section-head">
         <h1>Başvurular</h1>
-        <p className="muted">{total} kayıt</p>
+        <div className="admin-section-actions">
+          <p className="muted">{total} kayıt</p>
+          <button
+            type="button"
+            className="btn btn-ghost-dark"
+            disabled={exporting || loading || total === 0}
+            onClick={() => void exportExcel()}
+          >
+            {exporting ? 'Excel hazırlanıyor…' : 'Excel’e aktar'}
+          </button>
+        </div>
       </div>
 
       <form
@@ -206,7 +230,7 @@ export function AdminBasvuruList() {
         />
         <select value={durum} onChange={(e) => setDurum(e.target.value)}>
           <option value="">Tüm durumlar</option>
-          {(['Taslak', 'Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi', 'GeriCekildi'] as const).map((d) => (
+          {(['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'] as const).map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
@@ -221,6 +245,7 @@ export function AdminBasvuruList() {
         <table className="admin-table">
           <thead>
             <tr>
+              <th>Başvuru no</th>
               <th>Ad Soyad</th>
               <th>T.C.</th>
               <th>Üniversite</th>
@@ -232,12 +257,13 @@ export function AdminBasvuruList() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}>Yükleniyor…</td></tr>
+              <tr><td colSpan={8}>Yükleniyor…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={7}>Kayıt bulunamadı.</td></tr>
+              <tr><td colSpan={8}>Kayıt bulunamadı.</td></tr>
             ) : (
               items.map((row) => (
                 <tr key={row.id}>
+                  <td>{row.basvuruNo || '—'}</td>
                   <td>{row.ad} {row.soyad}</td>
                   <td>{row.tcKimlikNo}</td>
                   <td>{row.universite || '—'}</td>
@@ -316,6 +342,7 @@ export function AdminBasvuruDetail() {
         body: JSON.stringify({ durum }),
       })
       setData(json.data)
+      setDurum(String(json.data?.durum ?? ''))
       toast.success(
         json.notifyMessage ? String(json.notifyMessage) : 'Durum güncellendi.',
       )
@@ -352,6 +379,19 @@ export function AdminBasvuruDetail() {
     </div>
   )
 
+  const lockedFinal =
+    durum === 'Onaylandi' || durum === 'Reddedildi'
+    || String(data.durum) === 'Onaylandi'
+    || String(data.durum) === 'Reddedildi'
+
+  const durumOptions = (() => {
+    const all = ['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'] as const
+    const current = String(data.durum || '')
+    if (current === 'Onaylandi') return ['Onaylandi'] as const
+    if (current === 'Reddedildi') return ['Reddedildi'] as const
+    return all
+  })()
+
   return (
     <section className="admin-section">
       <div className="admin-section-head">
@@ -367,17 +407,30 @@ export function AdminBasvuruDetail() {
       <div className="wizard-card admin-detail-actions">
         <label>
           <span>Durum</span>
-          <select value={durum} onChange={(e) => setDurum(e.target.value)}>
-            {(['Taslak', 'Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi', 'GeriCekildi'] as const).map((d) => (
+          <select
+            value={durum}
+            disabled={lockedFinal || saving}
+            onChange={(e) => setDurum(e.target.value)}
+          >
+            {durumOptions.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
         </label>
-        <button type="button" className="btn" disabled={saving} onClick={() => void saveDurum()}>
-          {saving ? 'Kaydediliyor…' : 'Durumu kaydet'}
+        <button
+          type="button"
+          className="btn"
+          disabled={saving || lockedFinal || durum === String(data.durum)}
+          onClick={() => void saveDurum()}
+        >
+          {saving ? 'Kaydediliyor…' : lockedFinal ? 'Karar kilitli' : 'Durumu kaydet'}
         </button>
         <p className="field-hint" style={{ flexBasis: '100%', margin: 0 }}>
-          Durumu <strong>Onaylandi</strong> veya <strong>Reddedildi</strong> yaptığınızda başvuru sahibine e-posta ve SMS gönderilir.
+          {lockedFinal
+            ? String(data.durum) === 'Onaylandi'
+              ? 'Bu başvuru onaylanmış; reddedilemez ve durum değiştirilemez.'
+              : 'Bu başvuru reddedilmiş; onaylanamaz ve durum değiştirilemez.'
+            : <>Durumu <strong>Onaylandi</strong> veya <strong>Reddedildi</strong> yaptığınızda başvuru sahibine e-posta ve SMS gider; karar kalıcı kilitlenir.</>}
         </p>
       </div>
 
@@ -385,16 +438,18 @@ export function AdminBasvuruDetail() {
         <section className="admin-detail-block">
           <h3>Kimlik / iletişim</h3>
           <dl className="admin-kv-list">
+            <Row label="Başvuru no" value={s('basvuruNo')} />
             <Row label="T.C. kimlik no" value={s('tcKimlikNo')} />
             <Row label="Telefon" value={s('telefon')} />
             <Row label="Doğum tarihi" value={s('dogumTarihi')} />
             <Row label="Doğum yeri" value={s('dogumYeri')} />
+            <Row label="Medeni durum" value={s('medeniDurum')} />
             <Row label="E-posta" value={s('eposta')} />
             <Row label="Yakın telefon" value={s('yakinTelefon')} />
+            <Row label="Yakınlık / kim olduğu" value={s('yakinKim')} />
             <Row label="İl / İlçe" value={`${s('il')} / ${s('ilce')}`} />
             <Row label="Açık adres" value={s('acikAdres')} wide />
             <Row label="Başvuru sahibi statüsü" value={s('statu')} />
-            <Row label="Destek kategorisi" value={s('kategori')} />
           </dl>
         </section>
 
@@ -404,18 +459,31 @@ export function AdminBasvuruDetail() {
             <Row label="Baba adı" value={s('babaAdi')} />
             <Row label="Baba sağ mı?" value={s('babaSagMi')} />
             <Row label="Baba mesleği" value={s('babaMeslegi')} />
-            <Row label="Baba aylık net geliri" value={`${s('babaAylikGelir')} ₺`} />
+            {data.babaSagMi === 'Evet' || data.babaAylikGelir ? (
+              <Row label="Baba aylık net geliri" value={`${s('babaAylikGelir')} ₺`} />
+            ) : null}
             <Row label="Anne adı" value={s('anneAdi')} />
             <Row label="Anne sağ mı?" value={s('anneSagMi')} />
             <Row label="Anne mesleği" value={s('anneMeslegi')} />
-            <Row label="Anne aylık net geliri" value={`${s('anneAylikGelir')} ₺`} />
+            {data.anneSagMi === 'Evet' || data.anneAylikGelir ? (
+              <Row label="Anne aylık net geliri" value={`${s('anneAylikGelir')} ₺`} />
+            ) : null}
             <Row label="Anne-baba birlikte mi?" value={s('anneBabaBirlikte')} />
+            {data.medeniDurum === 'Evli' || data.esAylikGelir ? (
+              <Row label="Eş aylık net geliri" value={`${s('esAylikGelir')} ₺`} />
+            ) : null}
             <Row label="İlk/orta/lisede okuyan kardeş" value={s('kardesIlkokul')} />
             <Row label="Yükseköğretimde okuyan kardeş" value={s('kardesYuksek')} />
             <Row label="Oturduğunuz ev" value={s('oturdugunuzEv')} />
+            {data.oturdugunuzEv === 'Kira' || data.evKiraBedeli ? (
+              <Row label="Aylık kira bedeli" value={`${s('evKiraBedeli')} ₺`} />
+            ) : null}
             <Row label="Ailede araç var mı?" value={s('aracVarMi')} />
             {data.aracVarMi === 'Evet' || data.aracMarkaModel ? (
               <Row label="Araç marka / model" value={s('aracMarkaModel')} />
+            ) : null}
+            {data.aracVarMi === 'Evet' || data.aracYili ? (
+              <Row label="Araç yılı" value={s('aracYili')} />
             ) : null}
             <Row label="Özel durum" value={s('ozelDurumTipi')} />
             {data.ozelDurum ? <Row label="Özel durum açıklaması" value={s('ozelDurum')} wide /> : null}
@@ -438,6 +506,9 @@ export function AdminBasvuruDetail() {
             {data.yksSiralamasi ? <Row label="YKS yerleşme sırası" value={s('yksSiralamasi')} /> : null}
             {data.notOrtalamasi ? <Row label="Not ortalaması (GANO)" value={s('notOrtalamasi')} /> : null}
             <Row label="Başka kurumdan burs" value={s('baskaBurs')} />
+            {data.baskaBurs === 'Evet' || data.baskaBursMiktari ? (
+              <Row label="Burs miktarı" value={`${s('baskaBursMiktari')} ₺`} />
+            ) : null}
           </dl>
         </section>
 
@@ -445,7 +516,6 @@ export function AdminBasvuruDetail() {
           <h3>Beyanlar</h3>
           <dl className="admin-kv-list">
             <Row label="Kazanç getiren işte çalışmıyor" value={s('beyanCalismiyor')} />
-            <Row label="Evli değil" value={s('beyanEvliDegil')} />
             <Row label="Ağır disiplin cezası yok" value={s('beyanDisiplin')} />
             <Row label="Adli sicil yok" value={s('beyanAdliSicil')} />
             <Row label="Örgün öğretim öğrencisi" value={s('beyanOrgunOgretim')} />
@@ -820,8 +890,14 @@ const HERO_LINK_OPTIONS = [
   { value: '/basvuru/belgeler', label: 'Gerekli belgeler' },
   { value: '/kurumsal/hakkinda', label: 'Kurumsal — Hakkında' },
   { value: '/kurumsal/tarihce', label: 'Kurumsal — Tarihçe' },
-  { value: '/#destek', label: 'Destek alanları' },
-  { value: '/#footer-contact', label: 'İletişim' },
+  { value: '/medya/faaliyet-raporu', label: 'Medya — Faaliyet raporu' },
+  { value: '/medya/haber', label: 'Medya — Haber' },
+  { value: '/medya/basin-bultenleri', label: 'Medya — Basın bültenleri' },
+  { value: '/medya/kurumsal-kimlik', label: 'Medya — Kurumsal kimlik' },
+  { value: '/iletisim', label: 'İletişim' },
+  { value: '/yasal/kvkk', label: 'KVKK metni' },
+  { value: '/yasal/gizlilik-politikasi', label: 'Gizlilik politikası' },
+  { value: '/yasal/cerez-politikasi', label: 'Çerez politikası' },
   { value: '/#ust', label: 'Sayfa başı' },
 ] as const
 

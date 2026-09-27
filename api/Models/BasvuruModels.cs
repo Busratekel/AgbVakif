@@ -42,6 +42,12 @@ public sealed class BasvuruKaydetRequest
     [MaxLength(20)]
     public string? YakinTelefon { get; set; }
 
+    [MaxLength(80)]
+    public string? YakinKim { get; set; }
+
+    [MaxLength(20)]
+    public string? MedeniDurum { get; set; }
+
     [Required, MaxLength(60)]
     public string Il { get; set; } = "";
 
@@ -84,6 +90,9 @@ public sealed class BasvuruKaydetRequest
     [MaxLength(10)]
     public string? AnneBabaBirlikte { get; set; }
 
+    [MaxLength(40)]
+    public string? EsAylikGelir { get; set; }
+
     [MaxLength(5)]
     public string? KardesIlkokul { get; set; }
 
@@ -93,11 +102,17 @@ public sealed class BasvuruKaydetRequest
     [MaxLength(60)]
     public string? OturdugunuzEv { get; set; }
 
+    [MaxLength(40)]
+    public string? EvKiraBedeli { get; set; }
+
     [MaxLength(10)]
     public string? AracVarMi { get; set; }
 
     [MaxLength(120)]
     public string? AracMarkaModel { get; set; }
+
+    [MaxLength(10)]
+    public string? AracYili { get; set; }
 
     [MaxLength(80)]
     public string? OzelDurumTipi { get; set; }
@@ -144,8 +159,10 @@ public sealed class BasvuruKaydetRequest
     [MaxLength(10)]
     public string? BaskaBurs { get; set; }
 
+    [MaxLength(40)]
+    public string? BaskaBursMiktari { get; set; }
+
     public bool BeyanCalismiyor { get; set; }
-    public bool BeyanEvliDegil { get; set; }
     public bool BeyanDisiplin { get; set; }
     public bool BeyanAdliSicil { get; set; }
     public bool BeyanOrgunOgretim { get; set; }
@@ -154,14 +171,17 @@ public sealed class BasvuruKaydetRequest
 public sealed class BasvuruDto
 {
     public Guid Id { get; set; }
+    public string? BasvuruNo { get; set; }
     public string TcKimlikNoMasked { get; set; } = "";
     public string TelefonMasked { get; set; } = "";
     public string? Ad { get; set; }
     public string? Soyad { get; set; }
     public string? DogumTarihi { get; set; }
     public string? DogumYeri { get; set; }
+    public string? MedeniDurum { get; set; }
     public string? Eposta { get; set; }
     public string? YakinTelefon { get; set; }
+    public string? YakinKim { get; set; }
     public string? Il { get; set; }
     public string? Ilce { get; set; }
     public string? AcikAdres { get; set; }
@@ -176,11 +196,14 @@ public sealed class BasvuruDto
     public string? AnneMeslegi { get; set; }
     public string? AnneAylikGelir { get; set; }
     public string? AnneBabaBirlikte { get; set; }
+    public string? EsAylikGelir { get; set; }
     public string? KardesIlkokul { get; set; }
     public string? KardesYuksek { get; set; }
     public string? OturdugunuzEv { get; set; }
+    public string? EvKiraBedeli { get; set; }
     public string? AracVarMi { get; set; }
     public string? AracMarkaModel { get; set; }
+    public string? AracYili { get; set; }
     public string? OzelDurumTipi { get; set; }
     public string? OzelDurum { get; set; }
     public string? Universite { get; set; }
@@ -196,8 +219,8 @@ public sealed class BasvuruDto
     public string? YksSiralamasi { get; set; }
     public string? NotOrtalamasi { get; set; }
     public string? BaskaBurs { get; set; }
+    public string? BaskaBursMiktari { get; set; }
     public bool BeyanCalismiyor { get; set; }
-    public bool BeyanEvliDegil { get; set; }
     public bool BeyanDisiplin { get; set; }
     public bool BeyanAdliSicil { get; set; }
     public bool BeyanOrgunOgretim { get; set; }

@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { BASVURU_NAV, KURUMSAL_NAV, SITE } from '../config'
+import { BASVURU_NAV, KURUMSAL_NAV, MEDYA_NAV, SITE } from '../config'
 
-const links = [
-  { href: '/#destek', label: 'Destek alanları' },
-  { href: '/#footer-contact', label: 'İletişim' },
-]
-
-type DropKey = 'kurumsal' | 'basvuru' | null
+type DropKey = 'kurumsal' | 'medya' | 'basvuru' | null
 
 function canHover() {
   return window.matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -19,6 +14,7 @@ export function Header() {
   const [dropOpen, setDropOpen] = useState<DropKey>(null)
   const location = useLocation()
   const kurumsalRef = useRef<HTMLDivElement>(null)
+  const medyaRef = useRef<HTMLDivElement>(null)
   const basvuruRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -45,7 +41,13 @@ export function Header() {
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       const t = e.target as Node
-      if (kurumsalRef.current?.contains(t) || basvuruRef.current?.contains(t)) return
+      if (
+        kurumsalRef.current?.contains(t)
+        || medyaRef.current?.contains(t)
+        || basvuruRef.current?.contains(t)
+      ) {
+        return
+      }
       setDropOpen(null)
     }
     document.addEventListener('mousedown', onDoc)
@@ -53,6 +55,7 @@ export function Header() {
   }, [])
 
   const kurumsalActive = location.pathname.startsWith('/kurumsal')
+  const medyaActive = location.pathname.startsWith('/medya')
   const basvuruActive = location.pathname.startsWith('/basvuru')
 
   function closeAll() {
@@ -90,18 +93,18 @@ export function Header() {
               if (canHover()) setDropOpen((v) => (v === 'kurumsal' ? null : v))
             }}
           >
-            <button
-              type="button"
+            <Link
+              to={KURUMSAL_NAV[0].to}
               className={`nav-drop-btn${kurumsalActive ? ' is-active' : ''}`}
-              aria-expanded={dropOpen === 'kurumsal'}
               aria-haspopup="true"
-              onClick={() => setDropOpen((v) => (v === 'kurumsal' ? null : 'kurumsal'))}
+              aria-expanded={dropOpen === 'kurumsal'}
+              onClick={closeAll}
             >
               Kurumsal
               <span className="nav-drop-chevron" aria-hidden="true">
                 ▾
               </span>
-            </button>
+            </Link>
             <div className="nav-drop-menu" role="menu">
               {KURUMSAL_NAV.map((item) => (
                 <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
@@ -111,11 +114,44 @@ export function Header() {
             </div>
           </div>
 
-          {links[0] ? (
-            <a href={links[0].href} onClick={() => setOpen(false)}>
-              {links[0].label}
-            </a>
-          ) : null}
+          <div
+            className={`nav-drop${dropOpen === 'medya' ? ' is-open' : ''}`}
+            ref={medyaRef}
+            onMouseEnter={() => {
+              if (canHover()) setDropOpen('medya')
+            }}
+            onMouseLeave={() => {
+              if (canHover()) setDropOpen((v) => (v === 'medya' ? null : v))
+            }}
+          >
+            <Link
+              to={MEDYA_NAV[0].to}
+              className={`nav-drop-btn${medyaActive ? ' is-active' : ''}`}
+              aria-haspopup="true"
+              aria-expanded={dropOpen === 'medya'}
+              onClick={closeAll}
+            >
+              Medya merkezi
+              <span className="nav-drop-chevron" aria-hidden="true">
+                ▾
+              </span>
+            </Link>
+            <div className="nav-drop-menu" role="menu">
+              {MEDYA_NAV.map((item) => (
+                <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <Link
+            to="/iletisim"
+            className={location.pathname === '/iletisim' ? 'is-active' : undefined}
+            onClick={closeAll}
+          >
+            İletişim
+          </Link>
 
           <div
             className={`nav-drop${dropOpen === 'basvuru' ? ' is-open' : ''}`}
@@ -127,18 +163,18 @@ export function Header() {
               if (canHover()) setDropOpen((v) => (v === 'basvuru' ? null : v))
             }}
           >
-            <button
-              type="button"
+            <Link
+              to={BASVURU_NAV[0].to}
               className={`nav-drop-btn${basvuruActive ? ' is-active' : ''}`}
-              aria-expanded={dropOpen === 'basvuru'}
               aria-haspopup="true"
-              onClick={() => setDropOpen((v) => (v === 'basvuru' ? null : 'basvuru'))}
+              aria-expanded={dropOpen === 'basvuru'}
+              onClick={closeAll}
             >
               Burs
               <span className="nav-drop-chevron" aria-hidden="true">
                 ▾
               </span>
-            </button>
+            </Link>
             <div className="nav-drop-menu" role="menu">
               {BASVURU_NAV.map((item) => (
                 <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
@@ -147,16 +183,6 @@ export function Header() {
               ))}
             </div>
           </div>
-
-          {links[1] ? (
-            <a href={links[1].href} onClick={() => setOpen(false)}>
-              {links[1].label}
-            </a>
-          ) : null}
-
-          <Link className="btn btn-small" to="/basvuru/form" onClick={closeAll}>
-            Başvuru yap
-          </Link>
         </nav>
       </div>
     </header>

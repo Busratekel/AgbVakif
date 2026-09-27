@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CATEGORIES, FORM_API_URL, SITE, STATUSES } from '../config'
+import { FORM_API_URL, SITE, STATUSES } from '../config'
 import { formatMoneyInput } from '../money'
 import { ILLER, ilcelerOf } from '../data/turkiye'
 import { bolumlerOf, fakultelerOf, UNIVERSITE_AGACI } from '../data/universiteTree'
 import {
+  ARAC_YILLARI,
   emptyBasvuru,
   EV_DURUMU,
   EVET_HAYIR,
@@ -11,6 +12,7 @@ import {
   isYeniOgrenci,
   KARDEŞ_SAYILARI,
   KONAKLAMA,
+  MEDENI_DURUM,
   OZEL_DURUM_TIPLERI,
   SAG_MI,
   SINIFLAR,
@@ -41,14 +43,17 @@ function bool(v: unknown) {
 function mapApi(data: ApiBasvuru): BasvuruData {
   return {
     id: data.id,
+    basvuruNo: str(data.basvuruNo) || undefined,
     tcKimlikNoMasked: data.tcKimlikNoMasked,
     telefonMasked: data.telefonMasked,
     ad: str(data.ad),
     soyad: str(data.soyad),
     dogumTarihi: str(data.dogumTarihi),
     dogumYeri: str(data.dogumYeri),
+    medeniDurum: str(data.medeniDurum),
     eposta: str(data.eposta),
     yakinTelefon: str(data.yakinTelefon),
+    yakinKim: str(data.yakinKim),
     il: str(data.il),
     ilce: str(data.ilce),
     acikAdres: str(data.acikAdres),
@@ -63,11 +68,14 @@ function mapApi(data: ApiBasvuru): BasvuruData {
     anneMeslegi: str(data.anneMeslegi),
     anneAylikGelir: str(data.anneAylikGelir),
     anneBabaBirlikte: str(data.anneBabaBirlikte),
+    esAylikGelir: str(data.esAylikGelir),
     kardesIlkokul: str(data.kardesIlkokul) || '0',
     kardesYuksek: str(data.kardesYuksek) || '0',
     oturdugunuzEv: str(data.oturdugunuzEv),
+    evKiraBedeli: str(data.evKiraBedeli),
     aracVarMi: str(data.aracVarMi),
     aracMarkaModel: str(data.aracMarkaModel),
+    aracYili: str(data.aracYili),
     ozelDurumTipi: str(data.ozelDurumTipi),
     ozelDurum: str(data.ozelDurum),
     universite: str(data.universite),
@@ -83,8 +91,8 @@ function mapApi(data: ApiBasvuru): BasvuruData {
     yksSiralamasi: str(data.yksSiralamasi),
     notOrtalamasi: str(data.notOrtalamasi),
     baskaBurs: str(data.baskaBurs),
+    baskaBursMiktari: str(data.baskaBursMiktari),
     beyanCalismiyor: bool(data.beyanCalismiyor),
-    beyanEvliDegil: bool(data.beyanEvliDegil),
     beyanDisiplin: bool(data.beyanDisiplin),
     beyanAdliSicil: bool(data.beyanAdliSicil),
     beyanOrgunOgretim: bool(data.beyanOrgunOgretim),
@@ -131,6 +139,7 @@ export function ApplicationWizard() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [wasUpdate, setWasUpdate] = useState(false)
   const alertRef = useRef<HTMLDivElement>(null)
 
   function update(patch: Partial<BasvuruData>) {
@@ -335,13 +344,17 @@ export function ApplicationWizard() {
     if (!data.soyad.trim()) missing.push({ key: 'soyad', message: req })
     if (!data.dogumTarihi) missing.push({ key: 'dogumTarihi', message: req })
     if (!data.dogumYeri) missing.push({ key: 'dogumYeri', message: req })
+    if (!data.medeniDurum) missing.push({ key: 'medeniDurum', message: req })
     if (!data.eposta.trim()) missing.push({ key: 'eposta', message: req })
     if (!data.yakinTelefon.trim() || onlyDigits(data.yakinTelefon, 11).length < 11) {
       missing.push({ key: 'yakinTelefon', message: 'Geçerli bir telefon girin (05xx …)' })
     }
+    if (!data.yakinKim.trim()) missing.push({ key: 'yakinKim', message: req })
     if (!data.il) missing.push({ key: 'il', message: req })
     if (!data.ilce) missing.push({ key: 'ilce', message: req })
-    if (!data.acikAdres.trim()) missing.push({ key: 'acikAdres', message: req })
+    if (data.acikAdres.trim().length < 10) {
+      missing.push({ key: 'acikAdres', message: 'Açık adres en az 10 karakter olmalıdır' })
+    }
     if (!data.statu) missing.push({ key: 'statu', message: req })
     if (!data.kategori) missing.push({ key: 'kategori', message: req })
     return missing
@@ -353,16 +366,27 @@ export function ApplicationWizard() {
     if (!data.babaAdi.trim()) missing.push({ key: 'babaAdi', message: req })
     if (!data.babaSagMi) missing.push({ key: 'babaSagMi', message: req })
     if (!data.babaMeslegi.trim()) missing.push({ key: 'babaMeslegi', message: req })
-    if (data.babaAylikGelir === '') missing.push({ key: 'babaAylikGelir', message: req })
+    if (data.babaSagMi === 'Evet' && data.babaAylikGelir === '') {
+      missing.push({ key: 'babaAylikGelir', message: req })
+    }
     if (!data.anneAdi.trim()) missing.push({ key: 'anneAdi', message: req })
     if (!data.anneSagMi) missing.push({ key: 'anneSagMi', message: req })
     if (!data.anneMeslegi.trim()) missing.push({ key: 'anneMeslegi', message: req })
-    if (data.anneAylikGelir === '') missing.push({ key: 'anneAylikGelir', message: req })
+    if (data.anneSagMi === 'Evet' && data.anneAylikGelir === '') {
+      missing.push({ key: 'anneAylikGelir', message: req })
+    }
     if (!data.anneBabaBirlikte) missing.push({ key: 'anneBabaBirlikte', message: req })
+    if (data.medeniDurum === 'Evli' && data.esAylikGelir === '') {
+      missing.push({ key: 'esAylikGelir', message: req })
+    }
     if (!data.oturdugunuzEv) missing.push({ key: 'oturdugunuzEv', message: req })
+    if (data.oturdugunuzEv === 'Kira' && data.evKiraBedeli === '') {
+      missing.push({ key: 'evKiraBedeli', message: req })
+    }
     if (!data.aracVarMi) missing.push({ key: 'aracVarMi', message: req })
-    if (data.aracVarMi === 'Evet' && !data.aracMarkaModel.trim()) {
-      missing.push({ key: 'aracMarkaModel', message: req })
+    if (data.aracVarMi === 'Evet') {
+      if (!data.aracMarkaModel.trim()) missing.push({ key: 'aracMarkaModel', message: req })
+      if (!data.aracYili) missing.push({ key: 'aracYili', message: req })
     }
     if (!data.ozelDurumTipi) missing.push({ key: 'ozelDurumTipi', message: req })
     if (!data.universite) missing.push({ key: 'universite', message: req })
@@ -384,6 +408,9 @@ export function ApplicationWizard() {
       missing.push({ key: 'notOrtalamasi', message: req })
     }
     if (!data.baskaBurs) missing.push({ key: 'baskaBurs', message: req })
+    if (data.baskaBurs === 'Evet' && data.baskaBursMiktari === '') {
+      missing.push({ key: 'baskaBursMiktari', message: req })
+    }
     return missing
   }
 
@@ -410,7 +437,7 @@ export function ApplicationWizard() {
   }
 
   async function goBeyanlarNext() {
-    if (!data.beyanCalismiyor || !data.beyanEvliDegil || !data.beyanDisiplin
+    if (!data.beyanCalismiyor || !data.beyanDisiplin
       || !data.beyanAdliSicil || !data.beyanOrgunOgretim) {
       showFieldErrors([{ key: 'beyanlar', message: 'Tüm koşul beyanlarını işaretleyin.' }])
       return
@@ -434,6 +461,7 @@ export function ApplicationWizard() {
         throw new Error(result.message || 'Gönderim başarısız')
       }
       setData(mapApi(result.data as ApiBasvuru))
+      setWasUpdate(Boolean(result.isUpdate))
       setStep('sonuc')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bir hata oluştu')
@@ -443,7 +471,15 @@ export function ApplicationWizard() {
   }
 
   function printSummary() {
+    document.body.classList.add('printing-summary')
+    const cleanup = () => {
+      document.body.classList.remove('printing-summary')
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
     window.print()
+    // bazı tarayıcılarda afterprint gecikebilir / gelmeyebilir
+    window.setTimeout(cleanup, 1000)
   }
 
   function onSmsDigit(index: number, value: string) {
@@ -566,7 +602,7 @@ export function ApplicationWizard() {
                 {returning ? ' Mevcut başvurunuz varsa bilgiler getirilecektir.' : ''}
               </p>
               <div className="form-grid">
-                <label className={`full${tc.length === 11 && !validateTCKN(tc) ? ' is-invalid' : ''}`}>
+                <label className={tc.length === 11 && !validateTCKN(tc) ? 'is-invalid' : undefined}>
                   <span>T.C. kimlik no</span>
                   <input
                     value={tc}
@@ -579,10 +615,10 @@ export function ApplicationWizard() {
                   {tc.length === 11 && !validateTCKN(tc) ? (
                     <small className="field-error">Geçersiz T.C. kimlik numarası.</small>
                   ) : (
-                    <small className="field-hint">11 haneli geçerli bir T.C. kimlik numarası girin.</small>
+                    <small className="field-hint">11 haneli geçerli T.C. kimlik no</small>
                   )}
                 </label>
-                <label className="full">
+                <label>
                   <span>Cep telefonu</span>
                   <input
                     value={telefon}
@@ -654,7 +690,7 @@ export function ApplicationWizard() {
                 <h2>Başvuru Bilgileri</h2>
                 <span className="verified-pill">✓ Kimlik doğrulandı</span>
               </div>
-              <p className="wizard-lead">Lütfen tüm alanları eksiksiz doldurun.Burs verilmesi uygun görüldüğünde beyanlarınızı kanıtlayan belgeler istenecektir; belgelenemeyen beyan bursun iptaline yol açar.</p>
+              <p className="wizard-lead">Lütfen tüm alanları eksiksiz doldurun.Burs verilmesi uygun görüldüğünde beyanlarınızı kanıtlayan belgeler istenecektir; belgelenemeyen beyan burs başvurunuzun iptaline yol açar.</p>
 
               <h3 className="wizard-sub">1. Kimlik bilgileri</h3>
               <div className="form-grid">
@@ -685,6 +721,22 @@ export function ApplicationWizard() {
                     {ILLER.map((il) => <option key={il} value={il}>{il}</option>)}
                   </select>
                 </label>
+                <label className={isInvalid('medeniDurum')}>
+                  <span>Medeni durum<abbr className="req" title="Zorunlu">*</abbr></span>
+                  {fieldError('medeniDurum')}
+                  <select
+                    value={data.medeniDurum}
+                    onChange={(e) =>
+                      update({
+                        medeniDurum: e.target.value,
+                        esAylikGelir: e.target.value === 'Evli' ? data.esAylikGelir : '',
+                      })
+                    }
+                  >
+                    <option value="">Seçiniz</option>
+                    {MEDENI_DURUM.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </label>
               </div>
 
               <h3 className="wizard-sub">2. İletişim bilgileri</h3>
@@ -698,7 +750,7 @@ export function ApplicationWizard() {
                   {fieldError('eposta')}
                   <input type="email" value={data.eposta} onChange={(e) => update({ eposta: e.target.value })} />
                 </label>
-                <label className={`full ${isInvalid('yakinTelefon')}`}>
+                <label className={isInvalid('yakinTelefon')}>
                   <span>Yakınına ait telefon<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('yakinTelefon')}
                   <input
@@ -707,6 +759,15 @@ export function ApplicationWizard() {
                     placeholder="05__ ___ __ __"
                   />
                   <small className="field-hint">Size ulaşılamadığında iletişim için kullanılır.</small>
+                </label>
+                <label className={isInvalid('yakinKim')}>
+                  <span>Yakınlık / kim olduğu<abbr className="req" title="Zorunlu">*</abbr></span>
+                  {fieldError('yakinKim')}
+                  <input
+                    value={data.yakinKim}
+                    onChange={(e) => update({ yakinKim: lettersOnly(e.target.value) })}
+                    placeholder="örn. Anne, Baba, Kardeş"
+                  />
                 </label>
                 <label className={isInvalid('il')}>
                   <span>İl<abbr className="req" title="Zorunlu">*</abbr></span>
@@ -777,7 +838,15 @@ export function ApplicationWizard() {
                 <label className={isInvalid('babaSagMi')}>
                   <span>Baba sağ mı?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('babaSagMi')}
-                  <select value={data.babaSagMi} onChange={(e) => update({ babaSagMi: e.target.value })}>
+                  <select
+                    value={data.babaSagMi}
+                    onChange={(e) =>
+                      update({
+                        babaSagMi: e.target.value,
+                        babaAylikGelir: e.target.value === 'Evet' ? data.babaAylikGelir : '',
+                      })
+                    }
+                  >
                     <option value="">Seçiniz</option>
                     {SAG_MI.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
@@ -787,16 +856,19 @@ export function ApplicationWizard() {
                   {fieldError('babaMeslegi')}
                   <input value={data.babaMeslegi} onChange={(e) => update({ babaMeslegi: lettersOnly(e.target.value) })} />
                 </label>
-                <label className={isInvalid('babaAylikGelir')}>
-                  <span>Baba aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
-                  {fieldError('babaAylikGelir')}
-                  <input
-                    value={data.babaAylikGelir}
-                    onChange={(e) => update({ babaAylikGelir: formatMoneyInput(e.target.value) })}
-                    placeholder="örn. 22.000"
-                  />
-                  <small className="field-hint">Geliri yoksa 0 yazınız.</small>
-                </label>
+                {data.babaSagMi === 'Evet' ? (
+                  <label className={isInvalid('babaAylikGelir')}>
+                    <span>Baba aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('babaAylikGelir')}
+                    <input
+                      value={data.babaAylikGelir}
+                      onChange={(e) => update({ babaAylikGelir: formatMoneyInput(e.target.value) })}
+                      placeholder="örn. 22.000"
+                      inputMode="numeric"
+                    />
+                    <small className="field-hint">Geliri yoksa 0 yazınız.</small>
+                  </label>
+                ) : null}
                 <label className={isInvalid('anneAdi')}>
                   <span>Anne adı<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('anneAdi')}
@@ -805,7 +877,15 @@ export function ApplicationWizard() {
                 <label className={isInvalid('anneSagMi')}>
                   <span>Anne sağ mı?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('anneSagMi')}
-                  <select value={data.anneSagMi} onChange={(e) => update({ anneSagMi: e.target.value })}>
+                  <select
+                    value={data.anneSagMi}
+                    onChange={(e) =>
+                      update({
+                        anneSagMi: e.target.value,
+                        anneAylikGelir: e.target.value === 'Evet' ? data.anneAylikGelir : '',
+                      })
+                    }
+                  >
                     <option value="">Seçiniz</option>
                     {SAG_MI.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
@@ -815,16 +895,19 @@ export function ApplicationWizard() {
                   {fieldError('anneMeslegi')}
                   <input value={data.anneMeslegi} onChange={(e) => update({ anneMeslegi: lettersOnly(e.target.value) })} />
                 </label>
-                <label className={isInvalid('anneAylikGelir')}>
-                  <span>Anne aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
-                  {fieldError('anneAylikGelir')}
-                  <input
-                    value={data.anneAylikGelir}
-                    onChange={(e) => update({ anneAylikGelir: formatMoneyInput(e.target.value) })}
-                    placeholder="örn. 0"
-                  />
-                  <small className="field-hint">Geliri yoksa 0 yazınız.</small>
-                </label>
+                {data.anneSagMi === 'Evet' ? (
+                  <label className={isInvalid('anneAylikGelir')}>
+                    <span>Anne aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('anneAylikGelir')}
+                    <input
+                      value={data.anneAylikGelir}
+                      onChange={(e) => update({ anneAylikGelir: formatMoneyInput(e.target.value) })}
+                      placeholder="örn. 0"
+                      inputMode="numeric"
+                    />
+                    <small className="field-hint">Geliri yoksa 0 yazınız.</small>
+                  </label>
+                ) : null}
                 <label className={isInvalid('anneBabaBirlikte')}>
                   <span>Anne-baba birlikte mi?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('anneBabaBirlikte')}
@@ -833,6 +916,19 @@ export function ApplicationWizard() {
                     {EVET_HAYIR.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
+                {data.medeniDurum === 'Evli' ? (
+                  <label className={isInvalid('esAylikGelir')}>
+                    <span>Eşinizin aylık net geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('esAylikGelir')}
+                    <input
+                      value={data.esAylikGelir}
+                      onChange={(e) => update({ esAylikGelir: formatMoneyInput(e.target.value) })}
+                      placeholder="örn. 15.000"
+                      inputMode="numeric"
+                    />
+                    <small className="field-hint">Geliri yoksa 0 yazınız.</small>
+                  </label>
+                ) : null}
                 <label>
                   <span>İlkokul/ortaokul/lisede okuyan kardeş<abbr className="req" title="Zorunlu">*</abbr></span>
                   <select value={data.kardesIlkokul} onChange={(e) => update({ kardesIlkokul: e.target.value })}>
@@ -848,11 +944,31 @@ export function ApplicationWizard() {
                 <label className={isInvalid('oturdugunuzEv')}>
                   <span>Oturduğunuz ev<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('oturdugunuzEv')}
-                  <select value={data.oturdugunuzEv} onChange={(e) => update({ oturdugunuzEv: e.target.value })}>
+                  <select
+                    value={data.oturdugunuzEv}
+                    onChange={(e) =>
+                      update({
+                        oturdugunuzEv: e.target.value,
+                        evKiraBedeli: e.target.value === 'Kira' ? data.evKiraBedeli : '',
+                      })
+                    }
+                  >
                     <option value="">Seçiniz</option>
                     {EV_DURUMU.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
+                {data.oturdugunuzEv === 'Kira' ? (
+                  <label className={isInvalid('evKiraBedeli')}>
+                    <span>Aylık kira bedeli (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('evKiraBedeli')}
+                    <input
+                      value={data.evKiraBedeli}
+                      onChange={(e) => update({ evKiraBedeli: formatMoneyInput(e.target.value) })}
+                      placeholder="örn. 8.000"
+                      inputMode="numeric"
+                    />
+                  </label>
+                ) : null}
                 <label className={isInvalid('aracVarMi')}>
                   <span>Ailede araç var mı?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('aracVarMi')}
@@ -862,6 +978,7 @@ export function ApplicationWizard() {
                       update({
                         aracVarMi: e.target.value,
                         aracMarkaModel: e.target.value === 'Evet' ? data.aracMarkaModel : '',
+                        aracYili: e.target.value === 'Evet' ? data.aracYili : '',
                       })
                     }
                   >
@@ -870,36 +987,53 @@ export function ApplicationWizard() {
                   </select>
                 </label>
                 {data.aracVarMi === 'Evet' ? (
-                  <label className={`full ${isInvalid('aracMarkaModel')}`}>
-                    <span>Araç marka / model<abbr className="req" title="Zorunlu">*</abbr></span>
-                    {fieldError('aracMarkaModel')}
-                    <input
-                      value={data.aracMarkaModel}
-                      onChange={(e) => update({ aracMarkaModel: e.target.value })}
-                      placeholder="örn. Renault Clio"
-                    />
-                  </label>
+                  <>
+                    <label className={isInvalid('aracMarkaModel')}>
+                      <span>Araç marka / model<abbr className="req" title="Zorunlu">*</abbr></span>
+                      {fieldError('aracMarkaModel')}
+                      <input
+                        value={data.aracMarkaModel}
+                        onChange={(e) => update({ aracMarkaModel: e.target.value })}
+                        placeholder="örn. Renault Clio"
+                      />
+                    </label>
+                    <label className={isInvalid('aracYili')}>
+                      <span>Araç yılı<abbr className="req" title="Zorunlu">*</abbr></span>
+                      {fieldError('aracYili')}
+                      <select value={data.aracYili} onChange={(e) => update({ aracYili: e.target.value })}>
+                        <option value="">Seçiniz</option>
+                        {ARAC_YILLARI.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                    </label>
+                  </>
                 ) : null}
                 <label className={`full ${isInvalid('ozelDurumTipi')}`}>
                   <span>Özel durum<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('ozelDurumTipi')}
                   <select
                     value={data.ozelDurumTipi}
-                    onChange={(e) => update({ ozelDurumTipi: e.target.value })}
+                    onChange={(e) =>
+                      update({
+                        ozelDurumTipi: e.target.value,
+                        ozelDurum: e.target.value === 'Yok' ? '' : data.ozelDurum,
+                      })
+                    }
                   >
                     <option value="">Seçiniz</option>
                     {OZEL_DURUM_TIPLERI.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
-                <label className="full">
-                  <span>Özel durum açıklaması</span>
-                  <textarea
-                    rows={3}
-                    value={data.ozelDurum}
-                    onChange={(e) => update({ ozelDurum: e.target.value })}
-                    placeholder="Lütfen kısa bir açıklama yazınız."
-                  />
-                </label>
+                {data.ozelDurumTipi && data.ozelDurumTipi !== 'Yok' ? (
+                  <label className="full">
+                    <span>Özel durum açıklaması</span>
+                    <textarea
+                      rows={3}
+                      value={data.ozelDurum}
+                      onChange={(e) => update({ ozelDurum: e.target.value })}
+                      placeholder="Lütfen kısa bir açıklama yazınız."
+                    />
+                  </label>
+                ) : null}
               </div>
 
               <h3 className="wizard-sub">4. Eğitim bilgileri</h3>
@@ -1071,12 +1205,32 @@ export function ApplicationWizard() {
                 <label className={`full ${isInvalid('baskaBurs')}`}>
                   <span>Başka kamu veya özel kurumdan burs alıyor musunuz?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('baskaBurs')}
-                  <select value={data.baskaBurs} onChange={(e) => update({ baskaBurs: e.target.value })}>
+                  <select
+                    value={data.baskaBurs}
+                    onChange={(e) =>
+                      update({
+                        baskaBurs: e.target.value,
+                        baskaBursMiktari: e.target.value === 'Evet' ? data.baskaBursMiktari : '',
+                      })
+                    }
+                  >
                     <option value="">Seçiniz</option>
                     {EVET_HAYIR.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                   <small className="field-hint">KYK öğrenim kredisi burs sayılmaz.</small>
                 </label>
+                {data.baskaBurs === 'Evet' ? (
+                  <label className={`full ${isInvalid('baskaBursMiktari')}`}>
+                    <span>Aylık burs miktarı (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('baskaBursMiktari')}
+                    <input
+                      value={data.baskaBursMiktari}
+                      onChange={(e) => update({ baskaBursMiktari: formatMoneyInput(e.target.value) })}
+                      placeholder="örn. 3.000"
+                      inputMode="numeric"
+                    />
+                  </label>
+                ) : null}
               </div>
 
               <div className="wizard-actions space-between">
@@ -1101,14 +1255,6 @@ export function ApplicationWizard() {
                     onChange={(e) => update({ beyanCalismiyor: e.target.checked })}
                   />
                   <span>Kazanç getiren herhangi bir işte çalışmıyorum.</span>
-                </label>
-                <label className="consent">
-                  <input
-                    type="checkbox"
-                    checked={data.beyanEvliDegil}
-                    onChange={(e) => update({ beyanEvliDegil: e.target.checked })}
-                  />
-                  <span>Evli değilim.</span>
                 </label>
                 <label className="consent">
                   <input
@@ -1150,44 +1296,180 @@ export function ApplicationWizard() {
 
           {step === 'ozet' && (
             <>
-              <h2 className="no-print">Başvuru Özeti</h2>
-              <div className="summary-box" id="basvuru-ozet">
+              <h2 className="no-print">Özet ve Onay</h2>
+              <p className="wizard-lead no-print">
+                Bilgilerinizi kontrol edin. Onayladıktan sonra başvurunuz değerlendirmeye alınır.
+              </p>
+              <div className="summary-box summary-mev" id="basvuru-ozet">
                 <header className="summary-print-head">
                   <strong>Anadolu Güçbirliği Vakfı</strong>
                   <span>Burs / Destek Başvuru Özeti</span>
                 </header>
-                <dl className="summary-grid">
-                  <div><dt>Ad Soyad</dt><dd>{data.ad} {data.soyad}</dd></div>
-                  <div><dt>T.C. Kimlik No</dt><dd>{data.tcKimlikNoMasked}</dd></div>
-                  <div><dt>Doğum</dt><dd>{data.dogumTarihi} / {data.dogumYeri}</dd></div>
-                  <div><dt>Telefon</dt><dd>{data.telefonMasked}</dd></div>
-                  <div><dt>E-posta</dt><dd>{data.eposta}</dd></div>
-                  <div className="full"><dt>Adres</dt><dd>{data.il} / {data.ilce} — {data.acikAdres}</dd></div>
-                  <div><dt>Statü</dt><dd>{data.statu}</dd></div>
-                  <div><dt>Kategori</dt><dd>{data.kategori}</dd></div>
-                  <div className="full"><dt>Üniversite</dt><dd>{data.universite} — {data.fakulte} / {data.bolum}</dd></div>
-                  <div><dt>Sınıf / Kayıt</dt><dd>{data.sinif} · kayıt {data.kayitYili}</dd></div>
-                  <div><dt>Bitirme yılı</dt><dd>{data.bitirmeYili}</dd></div>
-                  {data.yksSiralamasi ? <div><dt>YKS</dt><dd>{data.yksSiralamasi}</dd></div> : null}
-                  {data.notOrtalamasi ? <div><dt>Not ortalaması</dt><dd>{data.notOrtalamasi}</dd></div> : null}
-                  <div><dt>Başka burs</dt><dd>{data.baskaBurs}</dd></div>
-                  <div><dt>Baba geliri</dt><dd>{data.babaAylikGelir || '0'} ₺</dd></div>
-                  <div><dt>Anne geliri</dt><dd>{data.anneAylikGelir || '0'} ₺</dd></div>
-                  <div><dt>Ailede araç var mı?</dt><dd>{data.aracVarMi === 'Evet' ? (data.aracMarkaModel || 'Var') : (data.aracVarMi || '—')}</dd></div>
-                  {data.ailedenUzakta === 'Evet' ? (
-                    <div className="full"><dt>Konaklama</dt><dd>{data.konaklamaDurumu} · {data.konaklamaUcreti} ₺</dd></div>
-                  ) : null}
-                  <div><dt>Özel durum</dt><dd>{data.ozelDurumTipi || '—'}</dd></div>
-                </dl>
+
+                <section className="summary-section">
+                  <h3>Kimlik ve İletişim</h3>
+                  <table className="summary-table">
+                    <tbody>
+                      {data.basvuruNo ? (
+                        <tr>
+                          <th>Başvuru no</th>
+                          <td>{data.basvuruNo}</td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <th>T.C. Kimlik No</th>
+                        <td>{data.tcKimlikNoMasked}</td>
+                      </tr>
+                      <tr>
+                        <th>Ad Soyad</th>
+                        <td>{data.ad} {data.soyad}</td>
+                      </tr>
+                      <tr>
+                        <th>Doğum</th>
+                        <td>{data.dogumTarihi} · {data.dogumYeri}</td>
+                      </tr>
+                      <tr>
+                        <th>Medeni durum</th>
+                        <td>{data.medeniDurum || '—'}</td>
+                      </tr>
+                      <tr>
+                        <th>Cep / E-posta</th>
+                        <td>{data.telefonMasked} · {data.eposta}</td>
+                      </tr>
+                      <tr>
+                        <th>Yakın telefon</th>
+                        <td>{data.yakinTelefon} ({data.yakinKim || '—'})</td>
+                      </tr>
+                      <tr>
+                        <th>Adres</th>
+                        <td>{data.il} / {data.ilce} — {data.acikAdres}</td>
+                      </tr>
+                      <tr>
+                        <th>Statü</th>
+                        <td>{data.statu || '—'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+
+                <section className="summary-section">
+                  <h3>Aile ve Gelir</h3>
+                  <table className="summary-table">
+                    <tbody>
+                      <tr>
+                        <th>Baba</th>
+                        <td>
+                          {data.babaAdi}
+                          {data.babaMeslegi ? ` · ${data.babaMeslegi}` : ''}
+                          {data.babaSagMi === 'Evet' ? ` · ${data.babaAylikGelir || '0'} ₺` : ' · —'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Anne</th>
+                        <td>
+                          {data.anneAdi}
+                          {data.anneMeslegi ? ` · ${data.anneMeslegi}` : ''}
+                          {data.anneSagMi === 'Evet' ? ` · ${data.anneAylikGelir || '0'} ₺` : ' · —'}
+                        </td>
+                      </tr>
+                      {data.medeniDurum === 'Evli' ? (
+                        <tr>
+                          <th>Eş geliri</th>
+                          <td>{data.esAylikGelir || '0'} ₺</td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <th>Kardeşler (ilk-orta-lise / yükseköğretim)</th>
+                        <td>{data.kardesIlkokul || '0'} / {data.kardesYuksek || '0'}</td>
+                      </tr>
+                      <tr>
+                        <th>Ev</th>
+                        <td>
+                          {data.oturdugunuzEv === 'Kira'
+                            ? `${data.oturdugunuzEv} · ${data.evKiraBedeli} ₺`
+                            : (data.oturdugunuzEv || '—')}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Araç</th>
+                        <td>
+                          {data.aracVarMi === 'Evet'
+                            ? `${data.aracMarkaModel || 'Var'}${data.aracYili ? ` (${data.aracYili})` : ''}`
+                            : (data.aracVarMi || '—')}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Özel durum</th>
+                        <td>
+                          {data.ozelDurumTipi || '—'}
+                          {data.ozelDurum && data.ozelDurumTipi !== 'Yok' ? ` — ${data.ozelDurum}` : ''}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+
+                <section className="summary-section">
+                  <h3>Eğitim</h3>
+                  <table className="summary-table">
+                    <tbody>
+                      <tr>
+                        <th>Okul</th>
+                        <td>{data.universite} · {data.fakulte} · {data.bolum}</td>
+                      </tr>
+                      <tr>
+                        <th>Sınıf / Bitirme</th>
+                        <td>{data.sinif || '—'} · {data.bitirmeYili || '—'}</td>
+                      </tr>
+                      <tr>
+                        <th>Kayıt yılı / Hazırlık</th>
+                        <td>{data.kayitYili || '—'} · {data.hazirlik || '—'}</td>
+                      </tr>
+                      {data.yksSiralamasi ? (
+                        <tr>
+                          <th>YKS sıralama</th>
+                          <td>{data.yksSiralamasi}</td>
+                        </tr>
+                      ) : null}
+                      {data.notOrtalamasi ? (
+                        <tr>
+                          <th>Not ortalaması</th>
+                          <td>{data.notOrtalamasi}</td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <th>Başka burs</th>
+                        <td>
+                          {data.baskaBurs === 'Evet'
+                            ? `${data.baskaBurs} · ${data.baskaBursMiktari} ₺`
+                            : (data.baskaBurs || '—')}
+                        </td>
+                      </tr>
+                      {data.ailedenUzakta === 'Evet' ? (
+                        <tr>
+                          <th>Konaklama</th>
+                          <td>{data.konaklamaDurumu} · {data.konaklamaUcreti} ₺</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </section>
               </div>
-              <div className="wizard-actions space-between">
-                <button type="button" className="btn btn-ghost-dark" onClick={() => setStep('beyanlar')}>← Geri</button>
+
+              <div className="wizard-actions space-between no-print">
+                <button type="button" className="btn btn-ghost-dark" onClick={() => setStep('beyanlar')}>
+                  ← Düzenle
+                </button>
                 <div className="wizard-actions-right">
                   <button type="button" className="btn btn-ghost-dark" onClick={printSummary}>
                     Özeti PDF / yazdır
                   </button>
                   <button type="button" className="btn" disabled={loading} onClick={() => void submitFinal()}>
-                    {loading ? 'Gönderiliyor…' : 'Başvuruyu gönder'}
+                    {loading
+                      ? 'Kaydediliyor…'
+                      : data.durum === 'Gonderildi'
+                        ? 'Başvuruyu güncelle'
+                        : 'Başvuruyu gönder'}
                   </button>
                 </div>
               </div>
@@ -1196,26 +1478,37 @@ export function ApplicationWizard() {
 
           {step === 'sonuc' && (
             <>
-              <h2>Başvurunuz alındı</h2>
-              <p className="wizard-lead">
-                Talebiniz kaydedildi.
-                Değerlendirme sonucunda sizinle iletişime geçilecektir.
-              </p>
-              <div className="summary-box">
-                <header className="summary-print-head">
-                  <strong>Anadolu Güçbirliği Vakfı</strong>
-                  <span>Burs / Destek Başvuru Özeti</span>
-                </header>
-                <dl className="summary-grid">
-                  <div><dt>Ad Soyad</dt><dd>{data.ad} {data.soyad}</dd></div>
-                  <div><dt>T.C. Kimlik No</dt><dd>{data.tcKimlikNoMasked}</dd></div>
-                  <div><dt>Kategori</dt><dd>{data.kategori}</dd></div>
-                  <div><dt>Üniversite</dt><dd>{data.universite}</dd></div>
-                </dl>
+              <div className="success-box" id="basvuru-ozet">
+                <div className="success-check" aria-hidden="true">
+                  <svg viewBox="0 0 52 52" width="72" height="72">
+                    <circle cx="26" cy="26" r="25" fill="none" stroke="currentColor" strokeWidth="2" />
+                    <path
+                      d="M14.5 27.2 22.2 34.5 37.5 17.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <h2 className="success-title">
+                  {wasUpdate ? 'Başvurunuz güncellendi' : 'Başvurunuz alınmıştır'}
+                </h2>
+                {data.basvuruNo ? (
+                  <p className="success-no">
+                    Başvuru no: <strong>{data.basvuruNo}</strong>
+                  </p>
+                ) : null}
+                <p className="success-note no-print">
+                  {wasUpdate
+                    ? 'Güncel bilgileriniz kaydedildi. Değerlendirme sürecinde bu kayıt dikkate alınır.'
+                    : 'Değerlendirme sonucunda sizinle iletişime geçilecektir.'}
+                </p>
               </div>
-              <div className="wizard-actions">
+              <div className="wizard-actions no-print" style={{ justifyContent: 'center' }}>
                 <button type="button" className="btn btn-ghost-dark" onClick={printSummary}>
-                  Özeti yazdır / PDF
+                  Yazdır / PDF
                 </button>
                 <button
                   type="button"
@@ -1224,6 +1517,7 @@ export function ApplicationWizard() {
                     setStep('kvkk')
                     setKvkkOk(false)
                     setAccessToken('')
+                    setWasUpdate(false)
                     setData(emptyBasvuru())
                     setTc('')
                     setTelefon('')
@@ -1246,8 +1540,10 @@ function payloadFromData(data: BasvuruData) {
     soyad: data.soyad,
     dogumTarihi: data.dogumTarihi || null,
     dogumYeri: data.dogumYeri,
+    medeniDurum: data.medeniDurum || null,
     eposta: data.eposta,
     yakinTelefon: data.yakinTelefon || null,
+    yakinKim: data.yakinKim || null,
     il: data.il,
     ilce: data.ilce,
     acikAdres: data.acikAdres,
@@ -1256,19 +1552,22 @@ function payloadFromData(data: BasvuruData) {
     babaAdi: data.babaAdi,
     babaSagMi: data.babaSagMi,
     babaMeslegi: data.babaMeslegi,
-    babaAylikGelir: data.babaAylikGelir,
+    babaAylikGelir: data.babaSagMi === 'Evet' ? data.babaAylikGelir : null,
     anneAdi: data.anneAdi,
     anneSagMi: data.anneSagMi,
     anneMeslegi: data.anneMeslegi,
-    anneAylikGelir: data.anneAylikGelir,
+    anneAylikGelir: data.anneSagMi === 'Evet' ? data.anneAylikGelir : null,
     anneBabaBirlikte: data.anneBabaBirlikte,
+    esAylikGelir: data.medeniDurum === 'Evli' ? data.esAylikGelir : null,
     kardesIlkokul: data.kardesIlkokul,
     kardesYuksek: data.kardesYuksek,
     oturdugunuzEv: data.oturdugunuzEv,
+    evKiraBedeli: data.oturdugunuzEv === 'Kira' ? data.evKiraBedeli : null,
     aracVarMi: data.aracVarMi,
-    aracMarkaModel: data.aracMarkaModel || null,
+    aracMarkaModel: data.aracVarMi === 'Evet' ? data.aracMarkaModel || null : null,
+    aracYili: data.aracVarMi === 'Evet' ? data.aracYili || null : null,
     ozelDurumTipi: data.ozelDurumTipi,
-    ozelDurum: data.ozelDurum || null,
+    ozelDurum: data.ozelDurumTipi && data.ozelDurumTipi !== 'Yok' ? data.ozelDurum || null : null,
     universite: data.universite,
     fakulte: data.fakulte,
     bolum: data.bolum,
@@ -1282,8 +1581,8 @@ function payloadFromData(data: BasvuruData) {
     yksSiralamasi: data.yksSiralamasi || null,
     notOrtalamasi: data.notOrtalamasi || null,
     baskaBurs: data.baskaBurs,
+    baskaBursMiktari: data.baskaBurs === 'Evet' ? data.baskaBursMiktari : null,
     beyanCalismiyor: data.beyanCalismiyor,
-    beyanEvliDegil: data.beyanEvliDegil,
     beyanDisiplin: data.beyanDisiplin,
     beyanAdliSicil: data.beyanAdliSicil,
     beyanOrgunOgretim: data.beyanOrgunOgretim,

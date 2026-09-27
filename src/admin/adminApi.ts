@@ -103,6 +103,57 @@ export async function adminFetch(path: string, init?: RequestInit): Promise<any>
   return json
 }
 
+/** Filtreli başvuruları Excel (.xlsx) olarak indirir. */
+export async function adminDownloadBasvuruExcel(params: { q?: string; durum?: string }) {
+  const qs = new URLSearchParams()
+  if (params.q?.trim()) qs.set('q', params.q.trim())
+  if (params.durum) qs.set('durum', params.durum)
+
+  let response: Response
+  try {
+    response = await fetch(`${FORM_API_URL}/admin/basvurular/export?${qs}`, {
+      headers: {
+        Authorization: `Bearer ${getAdminToken()}`,
+        Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    })
+  } catch {
+    throw new Error('Sunucuya bağlanılamadı. API çalışıyor mu kontrol edin.')
+  }
+
+  if (response.status === 401) {
+    redirectToAdminLogin()
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yapmanız gerekiyor.')
+  }
+
+  if (!response.ok) {
+    const raw = await response.text()
+    let json: any = {}
+    try {
+      json = JSON.parse(raw)
+    } catch {
+      /* ignore */
+    }
+    throw new Error(formatAdminError(response.status, json, raw))
+  }
+
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition)
+  const fileName = match
+    ? decodeURIComponent(match[1].replace(/['"]/g, ''))
+    : `AGB-Basvurular-${new Date().toISOString().slice(0, 10)}.xlsx`
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function redirectToAdminLogin() {
   clearAdminSession()
   if (typeof window === 'undefined') return
@@ -165,6 +216,7 @@ export type HeroSlide = {
 
 export type AdminBasvuruListItem = {
   id: string
+  basvuruNo?: string
   ad?: string
   soyad?: string
   tcKimlikNo?: string
@@ -181,12 +233,10 @@ export type AdminBasvuruListItem = {
 }
 
 export const DURUMLAR = [
-  'Taslak',
   'Gonderildi',
   'Inceleniyor',
   'Onaylandi',
   'Reddedildi',
-  'GeriCekildi',
 ] as const
 
 export const CONFIG_LABELS: Record<string, string> = {

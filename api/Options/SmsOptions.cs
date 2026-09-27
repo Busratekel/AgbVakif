@@ -19,7 +19,7 @@ public sealed class TuratelSmsOptions
     public string ChannelCode { get; set; } = "583";
     public string UserName { get; set; } = "";
     public string PassWord { get; set; } = "";
-    public string Originator { get; set; } = "AGBHOLDING";
+    public string Originator { get; set; } = "BELLONA";
     public string PlatformId { get; set; } = "1";
     public string Type { get; set; } = "1";
 }

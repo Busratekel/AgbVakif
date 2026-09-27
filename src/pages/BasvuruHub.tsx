@@ -41,6 +41,19 @@ export function BasvuruHub() {
         <hr className="basvuru-rule" />
       </header>
 
+      {donem ? (
+        <p className="basvuru-org">
+          {donem.baslik}
+          {donem.donemMetni ? ` — ${donem.donemMetni}` : null}
+          {donem.baslikNot ? (
+            <>
+              <br />
+              <span className="muted">{donem.baslikNot}</span>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
       <p>
         {SITE.name}; maddi imkânları kısıtlı, başarılı önlisans ve lisans
         öğrencilerine burs vermektedir. Yüksek lisans ve doktora öğrencileri bu

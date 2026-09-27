@@ -176,6 +176,7 @@ public static class BasvuruEndpoints
                 OlusturmaTarihi = DateTime.UtcNow,
                 GuncellemeTarihi = DateTime.UtcNow,
             };
+            existing.BasvuruNo = await NextBasvuruNoAsync(db, ct);
             db.AGB_Vakif_Basvuru.Add(existing);
         }
         else
@@ -183,6 +184,10 @@ public static class BasvuruEndpoints
             existing.Telefon = telefon;
             existing.KvkkOnay = true;
             existing.GuncellemeTarihi = DateTime.UtcNow;
+            if (string.IsNullOrWhiteSpace(existing.BasvuruNo))
+            {
+                existing.BasvuruNo = await NextBasvuruNoAsync(db, ct);
+            }
         }
 
         await db.SaveChangesAsync(ct);
@@ -353,7 +358,7 @@ public static class BasvuruEndpoints
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
 
-        if (!request.BeyanCalismiyor || !request.BeyanEvliDegil || !request.BeyanDisiplin
+        if (!request.BeyanCalismiyor || !request.BeyanDisiplin
             || !request.BeyanAdliSicil || !request.BeyanOrgunOgretim)
         {
             return Results.BadRequest(new { success = false, message = "Tüm koşul beyanları zorunludur." });
@@ -368,6 +373,15 @@ public static class BasvuruEndpoints
         }
 
         Apply(entity, request);
+        if (string.IsNullOrWhiteSpace(entity.BasvuruNo))
+        {
+            entity.BasvuruNo = await NextBasvuruNoAsync(db, ct);
+        }
+
+        // Aynı TC tek kayıt: daha önce gönderilmişse güncelleme
+        var isUpdate = string.Equals(entity.Durum, "Gonderildi", StringComparison.OrdinalIgnoreCase)
+            || entity.SonGonderimTarihi is not null;
+
         entity.Durum = "Gonderildi";
         entity.SonGonderimTarihi = DateTime.UtcNow;
         entity.GuncellemeTarihi = DateTime.UtcNow;
@@ -378,9 +392,11 @@ public static class BasvuruEndpoints
         {
             await emailSender.SendAsync(
                 email.ToAddress,
-                "AGB Vakfı — Yeni burs başvurusu",
-                ApplicationMailComposer.BuildStaffNoticeHtml(entity),
-                ApplicationMailComposer.BuildStaffNoticeText(entity),
+                isUpdate
+                    ? "AGB Vakfı — Güncellenen burs başvurusu"
+                    : "AGB Vakfı — Yeni burs başvurusu",
+                ApplicationMailComposer.BuildStaffNoticeHtml(entity, isUpdate),
+                ApplicationMailComposer.BuildStaffNoticeText(entity, isUpdate),
                 entity.Eposta,
                 ct);
 
@@ -388,9 +404,11 @@ public static class BasvuruEndpoints
             {
                 await emailSender.SendAsync(
                     entity.Eposta!,
-                    "Başvurunuz alındı — Anadolu Güçbirliği Vakfı",
-                    ApplicationMailComposer.BuildApplicantAutoReply(),
-                    "Başvurunuz Anadolu Güçbirliği Vakfı tarafından alınmıştır.",
+                    isUpdate
+                        ? "Başvurunuz güncellendi — Anadolu Güçbirliği Vakfı"
+                        : "Başvurunuz alındı — Anadolu Güçbirliği Vakfı",
+                    ApplicationMailComposer.BuildApplicantAutoReply(entity, isUpdate),
+                    ApplicationMailComposer.BuildApplicantAutoReplyText(entity, isUpdate),
                     null,
                     ct);
             }
@@ -402,16 +420,14 @@ public static class BasvuruEndpoints
 
         try
         {
-            var smsBody =
-                "Anadolu Gucbirligi Vakfi: Destek basvurunuz alinmistir. Degerlendirme sonucunda sizinle iletisime gecilecektir.";
-            await sms.SendAsync(entity.Telefon, smsBody, ct);
+            await sms.SendAsync(entity.Telefon, ApplicationMailComposer.ReceivedSms(entity, isUpdate), ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Başvuru kaydedildi ancak bilgilendirme SMS’i gönderilemedi");
         }
 
-        return Results.Ok(new { success = true, data = ToDto(entity) });
+        return Results.Ok(new { success = true, isUpdate, data = ToDto(entity) });
     }
 
     private static AccessSession? RequireAccess(HttpContext http, OtpSessionService sessions)
@@ -431,10 +447,12 @@ public static class BasvuruEndpoints
         entity.Soyad = request.Soyad.Trim();
         entity.DogumTarihi = request.DogumTarihi;
         entity.DogumYeri = request.DogumYeri?.Trim();
+        entity.MedeniDurum = request.MedeniDurum?.Trim();
         entity.Eposta = request.Eposta.Trim();
         entity.YakinTelefon = string.IsNullOrWhiteSpace(request.YakinTelefon)
             ? null
             : TurkishId.NormalizePhone(request.YakinTelefon);
+        entity.YakinKim = request.YakinKim?.Trim();
         entity.Il = request.Il.Trim();
         entity.Ilce = request.Ilce.Trim();
         entity.AcikAdres = request.AcikAdres?.Trim();
@@ -443,19 +461,24 @@ public static class BasvuruEndpoints
         entity.BabaAdi = request.BabaAdi?.Trim();
         entity.BabaSagMi = request.BabaSagMi?.Trim();
         entity.BabaMeslegi = request.BabaMeslegi?.Trim();
-        entity.BabaAylikGelir = request.BabaAylikGelir?.Trim();
+        entity.BabaAylikGelir = request.BabaSagMi == "Evet" ? request.BabaAylikGelir?.Trim() : null;
         entity.AnneAdi = request.AnneAdi?.Trim();
         entity.AnneSagMi = request.AnneSagMi?.Trim();
         entity.AnneMeslegi = request.AnneMeslegi?.Trim();
-        entity.AnneAylikGelir = request.AnneAylikGelir?.Trim();
+        entity.AnneAylikGelir = request.AnneSagMi == "Evet" ? request.AnneAylikGelir?.Trim() : null;
         entity.AnneBabaBirlikte = request.AnneBabaBirlikte?.Trim();
+        entity.EsAylikGelir = request.MedeniDurum == "Evli" ? request.EsAylikGelir?.Trim() : null;
         entity.KardesIlkokul = request.KardesIlkokul?.Trim();
         entity.KardesYuksek = request.KardesYuksek?.Trim();
         entity.OturdugunuzEv = request.OturdugunuzEv?.Trim();
+        entity.EvKiraBedeli = request.OturdugunuzEv == "Kira" ? request.EvKiraBedeli?.Trim() : null;
         entity.AracVarMi = request.AracVarMi?.Trim();
-        entity.AracMarkaModel = request.AracMarkaModel?.Trim();
+        entity.AracMarkaModel = request.AracVarMi == "Evet" ? request.AracMarkaModel?.Trim() : null;
+        entity.AracYili = request.AracVarMi == "Evet" ? request.AracYili?.Trim() : null;
         entity.OzelDurumTipi = request.OzelDurumTipi?.Trim();
-        entity.OzelDurum = request.OzelDurum?.Trim();
+        entity.OzelDurum = request.OzelDurumTipi is null or "" or "Yok"
+            ? null
+            : request.OzelDurum?.Trim();
         entity.Universite = request.Universite?.Trim();
         entity.Fakulte = request.Fakulte?.Trim();
         entity.Bolum = request.Bolum?.Trim();
@@ -469,8 +492,8 @@ public static class BasvuruEndpoints
         entity.YksSiralamasi = request.YksSiralamasi?.Trim();
         entity.NotOrtalamasi = request.NotOrtalamasi?.Trim();
         entity.BaskaBurs = request.BaskaBurs?.Trim();
+        entity.BaskaBursMiktari = request.BaskaBurs == "Evet" ? request.BaskaBursMiktari?.Trim() : null;
         entity.BeyanCalismiyor = request.BeyanCalismiyor;
-        entity.BeyanEvliDegil = request.BeyanEvliDegil;
         entity.BeyanDisiplin = request.BeyanDisiplin;
         entity.BeyanAdliSicil = request.BeyanAdliSicil;
         entity.BeyanOrgunOgretim = request.BeyanOrgunOgretim;
@@ -479,14 +502,17 @@ public static class BasvuruEndpoints
     private static BasvuruDto ToDto(AgbBasvuru e) => new()
     {
         Id = e.Id,
+        BasvuruNo = e.BasvuruNo,
         TcKimlikNoMasked = TurkishId.MaskTc(e.TcKimlikNo),
         TelefonMasked = TurkishId.MaskPhone(e.Telefon),
         Ad = e.Ad,
         Soyad = e.Soyad,
         DogumTarihi = e.DogumTarihi?.ToString("yyyy-MM-dd"),
         DogumYeri = e.DogumYeri,
+        MedeniDurum = e.MedeniDurum,
         Eposta = e.Eposta,
         YakinTelefon = e.YakinTelefon,
+        YakinKim = e.YakinKim,
         Il = e.Il,
         Ilce = e.Ilce,
         AcikAdres = e.AcikAdres,
@@ -501,11 +527,14 @@ public static class BasvuruEndpoints
         AnneMeslegi = e.AnneMeslegi,
         AnneAylikGelir = e.AnneAylikGelir,
         AnneBabaBirlikte = e.AnneBabaBirlikte,
+        EsAylikGelir = e.EsAylikGelir,
         KardesIlkokul = e.KardesIlkokul,
         KardesYuksek = e.KardesYuksek,
         OturdugunuzEv = e.OturdugunuzEv,
+        EvKiraBedeli = e.EvKiraBedeli,
         AracVarMi = e.AracVarMi,
         AracMarkaModel = e.AracMarkaModel,
+        AracYili = e.AracYili,
         OzelDurumTipi = e.OzelDurumTipi,
         OzelDurum = e.OzelDurum,
         Universite = e.Universite,
@@ -521,13 +550,34 @@ public static class BasvuruEndpoints
         YksSiralamasi = e.YksSiralamasi,
         NotOrtalamasi = e.NotOrtalamasi,
         BaskaBurs = e.BaskaBurs,
+        BaskaBursMiktari = e.BaskaBursMiktari,
         BeyanCalismiyor = e.BeyanCalismiyor,
-        BeyanEvliDegil = e.BeyanEvliDegil,
         BeyanDisiplin = e.BeyanDisiplin,
         BeyanAdliSicil = e.BeyanAdliSicil,
         BeyanOrgunOgretim = e.BeyanOrgunOgretim,
         Durum = e.Durum,
     };
+
+    private static async Task<string> NextBasvuruNoAsync(BoytasWhContext db, CancellationToken ct)
+    {
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"AGB-{year}-";
+        var last = await db.AGB_Vakif_Basvuru
+            .AsNoTracking()
+            .Where(x => x.BasvuruNo != null && x.BasvuruNo.StartsWith(prefix))
+            .OrderByDescending(x => x.BasvuruNo)
+            .Select(x => x.BasvuruNo)
+            .FirstOrDefaultAsync(ct);
+
+        var seq = 1;
+        if (!string.IsNullOrWhiteSpace(last) && last.Length > prefix.Length
+            && int.TryParse(last[prefix.Length..], out var parsed))
+        {
+            seq = parsed + 1;
+        }
+
+        return $"{prefix}{seq:D6}";
+    }
 
     private static bool IsName(string value) =>
         !string.IsNullOrWhiteSpace(value) &&

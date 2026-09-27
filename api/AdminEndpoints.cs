@@ -1,6 +1,7 @@
 using AgbVakif.Api.Data;
 using AgbVakif.Api.Options;
 using AgbVakif.Api.Services;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -29,6 +30,7 @@ public static class AdminEndpoints
         var group = app.MapGroup("/api/admin").AddEndpointFilter(RequireAdminSession);
         group.MapGet("/me", HandleMe);
         group.MapGet("/basvurular", HandleList);
+        group.MapGet("/basvurular/export", HandleExportExcel);
         group.MapGet("/basvurular/{id:guid}", HandleDetail);
         group.MapPatch("/basvurular/{id:guid}/durum", HandleDurum);
         group.MapGet("/config", HandleGetConfig);
@@ -140,25 +142,7 @@ public static class AdminEndpoints
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = db.AGB_Vakif_Basvuru.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(durum))
-        {
-            var d = durum.Trim();
-            query = query.Where(x => x.Durum == d);
-        }
-
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var term = q.Trim();
-            query = query.Where(x =>
-                (x.Ad != null && x.Ad.Contains(term)) ||
-                (x.Soyad != null && x.Soyad.Contains(term)) ||
-                x.TcKimlikNo.Contains(term) ||
-                (x.Eposta != null && x.Eposta.Contains(term)) ||
-                (x.Universite != null && x.Universite.Contains(term)) ||
-                (x.Telefon != null && x.Telefon.Contains(term)));
-        }
+        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum);
 
         var total = await query.CountAsync(ct);
         var items = await query
@@ -168,6 +152,7 @@ public static class AdminEndpoints
             .Select(x => new
             {
                 x.Id,
+                x.BasvuruNo,
                 x.Ad,
                 x.Soyad,
                 tcKimlikNo = x.TcKimlikNo,
@@ -194,13 +179,125 @@ public static class AdminEndpoints
         });
     }
 
+    private static async Task<IResult> HandleExportExcel(
+        BoytasWhContext db,
+        string? q,
+        string? durum,
+        CancellationToken ct)
+    {
+        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum);
+        var rows = await query
+            .OrderByDescending(x => x.SonGonderimTarihi ?? x.GuncellemeTarihi)
+            .ToListAsync(ct);
+
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Basvurular");
+
+        string[] headers =
+        [
+            "Basvuru No", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
+            "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu", "Kategori",
+            "Baba Adi", "Baba Sag Mi", "Baba Meslegi", "Baba Aylik Gelir",
+            "Anne Adi", "Anne Sag Mi", "Anne Meslegi", "Anne Aylik Gelir", "Anne Baba Birlikte", "Es Aylik Gelir",
+            "Kardes Ilkokul-Orta-Lise", "Kardes Yuksekogretim", "Oturdugunuz Ev", "Ev Kira Bedeli",
+            "Arac Var Mi", "Arac Marka Model", "Arac Yili", "Ozel Durum Tipi", "Ozel Durum",
+            "Universite", "Fakulte", "Bolum", "Kayit Yili", "Sinif", "Bitirme Yili", "Hazirlik",
+            "Aileden Uzakta", "Konaklama Durumu", "Konaklama Ucreti", "YKS Siralamasi", "Not Ortalamasi",
+            "Baska Burs", "Baska Burs Miktari",
+            "Olusturma", "Guncelleme", "Son Gonderim",
+        ];
+
+        for (var c = 0; c < headers.Length; c++)
+        {
+            sheet.Cell(1, c + 1).Value = headers[c];
+        }
+
+        var headerRange = sheet.Range(1, 1, 1, headers.Length);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#0F3B32");
+        headerRange.Style.Font.FontColor = XLColor.White;
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var e = rows[i];
+            var r = i + 2;
+            object?[] values =
+            [
+                e.BasvuruNo, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
+                e.DogumTarihi?.ToString("dd.MM.yyyy"), e.DogumYeri, e.MedeniDurum,
+                e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu, e.Kategori,
+                e.BabaAdi, e.BabaSagMi, e.BabaMeslegi, e.BabaAylikGelir,
+                e.AnneAdi, e.AnneSagMi, e.AnneMeslegi, e.AnneAylikGelir, e.AnneBabaBirlikte, e.EsAylikGelir,
+                e.KardesIlkokul, e.KardesYuksek, e.OturdugunuzEv, e.EvKiraBedeli,
+                e.AracVarMi, e.AracMarkaModel, e.AracYili, e.OzelDurumTipi, e.OzelDurum,
+                e.Universite, e.Fakulte, e.Bolum, e.KayitYili, e.Sinif, e.BitirmeYili, e.Hazirlik,
+                e.AiledenUzakta, e.KonaklamaDurumu, e.KonaklamaUcreti, e.YksSiralamasi, e.NotOrtalamasi,
+                e.BaskaBurs, e.BaskaBursMiktari,
+                e.OlusturmaTarihi.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                e.GuncellemeTarihi.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+                e.SonGonderimTarihi?.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+            ];
+
+            for (var c = 0; c < values.Length; c++)
+            {
+                sheet.Cell(r, c + 1).SetValue(values[c]?.ToString() ?? "");
+            }
+        }
+
+        sheet.SheetView.FreezeRows(1);
+        sheet.Columns().AdjustToContents(1, 40);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var bytes = stream.ToArray();
+        var fileName = $"AGB-Basvurular-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
+        return Results.File(
+            bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
+    }
+
+    private static IQueryable<AgbBasvuru> FilterBasvurular(
+        IQueryable<AgbBasvuru> query,
+        string? q,
+        string? durum)
+    {
+        query = query.Where(x => x.Durum != "Taslak");
+
+        if (!string.IsNullOrWhiteSpace(durum))
+        {
+            var d = durum.Trim();
+            if (string.Equals(d, "Taslak", StringComparison.OrdinalIgnoreCase))
+            {
+                return query.Where(_ => false);
+            }
+
+            query = query.Where(x => x.Durum == d);
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+            query = query.Where(x =>
+                (x.Ad != null && x.Ad.Contains(term)) ||
+                (x.Soyad != null && x.Soyad.Contains(term)) ||
+                x.TcKimlikNo.Contains(term) ||
+                (x.Eposta != null && x.Eposta.Contains(term)) ||
+                (x.Universite != null && x.Universite.Contains(term)) ||
+                (x.Telefon != null && x.Telefon.Contains(term)) ||
+                (x.BasvuruNo != null && x.BasvuruNo.Contains(term)));
+        }
+
+        return query;
+    }
+
     private static async Task<IResult> HandleDetail(
         Guid id,
         BoytasWhContext db,
         CancellationToken ct)
     {
         var e = await db.AGB_Vakif_Basvuru.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (e is null)
+        if (e is null || string.Equals(e.Durum, "Taslak", StringComparison.OrdinalIgnoreCase))
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         }
@@ -221,7 +318,7 @@ public static class AdminEndpoints
         var logger = loggerFactory.CreateLogger("AdminBasvuru");
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "Taslak", "Gonderildi", "Inceleniyor", "Onaylandi", "Reddedildi", "GeriCekildi",
+            "Gonderildi", "Inceleniyor", "Onaylandi", "Reddedildi",
         };
 
         var durum = (request.Durum ?? "").Trim();
@@ -230,32 +327,54 @@ public static class AdminEndpoints
             return Results.BadRequest(new
             {
                 success = false,
-                message = "Geçersiz durum. İzin verilen: Taslak, Gonderildi, Inceleniyor, Onaylandi, Reddedildi, GeriCekildi",
+                message = "Geçersiz durum. İzin verilen: Gonderildi, Inceleniyor, Onaylandi, Reddedildi",
             });
         }
 
         var entity = await db.AGB_Vakif_Basvuru.FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (entity is null)
+        if (entity is null || string.Equals(entity.Durum, "Taslak", StringComparison.OrdinalIgnoreCase))
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         }
 
-        var previous = entity.Durum;
+        var previous = entity.Durum ?? "";
+        var prevApproved = string.Equals(previous, "Onaylandi", StringComparison.OrdinalIgnoreCase);
+        var prevRejected = string.Equals(previous, "Reddedildi", StringComparison.OrdinalIgnoreCase);
+        var nextApproved = string.Equals(durum, "Onaylandi", StringComparison.OrdinalIgnoreCase);
+        var nextRejected = string.Equals(durum, "Reddedildi", StringComparison.OrdinalIgnoreCase);
+
+        // Nihai karar: onay ↔ red birbirinin tersi; bir kez kilitlenir
+        if (prevApproved || prevRejected)
+        {
+            if (!string.Equals(previous, durum, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = prevApproved
+                        ? "Başvuru onaylanmış; durum değiştirilemez / reddedilemez."
+                        : "Başvuru reddedilmiş; durum değiştirilemez / onaylanamaz.",
+                });
+            }
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = ToAdminDto(entity),
+                notifyMessage = (string?)null,
+            });
+        }
+
         entity.Durum = durum;
         entity.GuncellemeTarihi = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         string? notifyMessage = null;
-        var becameApproved = !string.Equals(previous, "Onaylandi", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(durum, "Onaylandi", StringComparison.OrdinalIgnoreCase);
-        var becameRejected = !string.Equals(previous, "Reddedildi", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(durum, "Reddedildi", StringComparison.OrdinalIgnoreCase);
-
-        if (becameApproved)
+        if (nextApproved)
         {
             notifyMessage = await NotifyApprovalAsync(entity, emailSender, sms, emailOptions.Value, logger, ct);
         }
-        else if (becameRejected)
+        else if (nextRejected)
         {
             notifyMessage = await NotifyRejectionAsync(entity, emailSender, sms, emailOptions.Value, logger, ct);
         }
@@ -287,8 +406,8 @@ public static class AdminEndpoints
                 await emailSender.SendAsync(
                     entity.Eposta!,
                     "Başvurunuz onaylandı — Anadolu Güçbirliği Vakfı",
-                    ApplicationMailComposer.BuildApprovalHtml(adSoyad),
-                    ApplicationMailComposer.BuildApprovalText(adSoyad),
+                    ApplicationMailComposer.BuildApprovalHtml(adSoyad, entity.BasvuruNo),
+                    ApplicationMailComposer.BuildApprovalText(adSoyad, entity.BasvuruNo),
                     null,
                     ct);
                 mailOk = true;
@@ -303,7 +422,7 @@ public static class AdminEndpoints
         {
             if (!string.IsNullOrWhiteSpace(entity.Telefon))
             {
-                await sms.SendAsync(entity.Telefon, ApplicationMailComposer.ApprovalSms, ct);
+                await sms.SendAsync(entity.Telefon, ApplicationMailComposer.ApprovalSms(entity.BasvuruNo), ct);
                 smsOk = true;
             }
         }
@@ -337,8 +456,8 @@ public static class AdminEndpoints
                 await emailSender.SendAsync(
                     entity.Eposta!,
                     "Başvuru sonucunuz — Anadolu Güçbirliği Vakfı",
-                    ApplicationMailComposer.BuildRejectionHtml(adSoyad),
-                    ApplicationMailComposer.BuildRejectionText(adSoyad),
+                    ApplicationMailComposer.BuildRejectionHtml(adSoyad, entity.BasvuruNo),
+                    ApplicationMailComposer.BuildRejectionText(adSoyad, entity.BasvuruNo),
                     null,
                     ct);
                 mailOk = true;
@@ -353,7 +472,7 @@ public static class AdminEndpoints
         {
             if (!string.IsNullOrWhiteSpace(entity.Telefon))
             {
-                await sms.SendAsync(entity.Telefon, ApplicationMailComposer.RejectionSms, ct);
+                await sms.SendAsync(entity.Telefon, ApplicationMailComposer.RejectionSms(entity.BasvuruNo), ct);
                 smsOk = true;
             }
         }
@@ -541,14 +660,17 @@ public static class AdminEndpoints
     private static object ToAdminDto(AgbBasvuru e) => new
     {
         e.Id,
+        e.BasvuruNo,
         tcKimlikNo = e.TcKimlikNo,
         telefon = e.Telefon,
         e.Ad,
         e.Soyad,
         dogumTarihi = e.DogumTarihi?.ToString("yyyy-MM-dd"),
         e.DogumYeri,
+        e.MedeniDurum,
         e.Eposta,
         e.YakinTelefon,
+        e.YakinKim,
         e.Il,
         e.Ilce,
         e.AcikAdres,
@@ -563,11 +685,14 @@ public static class AdminEndpoints
         e.AnneMeslegi,
         e.AnneAylikGelir,
         e.AnneBabaBirlikte,
+        e.EsAylikGelir,
         e.KardesIlkokul,
         e.KardesYuksek,
         e.OturdugunuzEv,
+        e.EvKiraBedeli,
         e.AracVarMi,
         e.AracMarkaModel,
+        e.AracYili,
         e.OzelDurumTipi,
         e.OzelDurum,
         e.Universite,
@@ -583,8 +708,8 @@ public static class AdminEndpoints
         e.YksSiralamasi,
         e.NotOrtalamasi,
         e.BaskaBurs,
+        e.BaskaBursMiktari,
         e.BeyanCalismiyor,
-        e.BeyanEvliDegil,
         e.BeyanDisiplin,
         e.BeyanAdliSicil,
         e.BeyanOrgunOgretim,

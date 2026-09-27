@@ -4,14 +4,17 @@ BEGIN
     CREATE TABLE dbo.AGB_Vakif_Basvuru
     (
         Id              UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_AGB_Vakif_Basvuru PRIMARY KEY,
+        BasvuruNo       NVARCHAR(30)     NULL,
         TcKimlikNo      NVARCHAR(11)     NOT NULL,
         Telefon         NVARCHAR(20)     NOT NULL,
         Ad              NVARCHAR(80)     NULL,
         Soyad           NVARCHAR(80)     NULL,
         DogumTarihi     DATE             NULL,
         DogumYeri       NVARCHAR(80)     NULL,
+        MedeniDurum     NVARCHAR(20)     NULL,
         Eposta          NVARCHAR(160)    NULL,
         YakinTelefon    NVARCHAR(20)     NULL,
+        YakinKim        NVARCHAR(80)     NULL,
         Il              NVARCHAR(60)     NULL,
         Ilce            NVARCHAR(60)     NULL,
         AcikAdres       NVARCHAR(MAX)    NULL,
@@ -26,11 +29,14 @@ BEGIN
         AnneMeslegi     NVARCHAR(80)     NULL,
         AnneAylikGelir  NVARCHAR(40)     NULL,
         AnneBabaBirlikte NVARCHAR(10)    NULL,
+        EsAylikGelir    NVARCHAR(40)     NULL,
         KardesIlkokul   NVARCHAR(5)      NULL,
         KardesYuksek    NVARCHAR(5)      NULL,
         OturdugunuzEv   NVARCHAR(60)     NULL,
+        EvKiraBedeli    NVARCHAR(40)     NULL,
         AracVarMi       NVARCHAR(10)     NULL,
         AracMarkaModel  NVARCHAR(120)    NULL,
+        AracYili        NVARCHAR(10)     NULL,
         OzelDurumTipi   NVARCHAR(80)     NULL,
         OzelDurum       NVARCHAR(MAX)    NULL,
         Universite      NVARCHAR(160)    NULL,
@@ -46,8 +52,8 @@ BEGIN
         YksSiralamasi   NVARCHAR(80)     NULL,
         NotOrtalamasi   NVARCHAR(20)     NULL,
         BaskaBurs       NVARCHAR(10)     NULL,
+        BaskaBursMiktari NVARCHAR(40)    NULL,
         BeyanCalismiyor BIT              NOT NULL CONSTRAINT DF_AGB_Beyan1 DEFAULT(0),
-        BeyanEvliDegil  BIT              NOT NULL CONSTRAINT DF_AGB_BeyanEv DEFAULT(0),
         BeyanDisiplin   BIT              NOT NULL CONSTRAINT DF_AGB_BeyanDi DEFAULT(0),
         BeyanAdliSicil  BIT              NOT NULL CONSTRAINT DF_AGB_Beyan2 DEFAULT(0),
         BeyanOrgunOgretim BIT            NOT NULL CONSTRAINT DF_AGB_BeyanOr DEFAULT(0),
@@ -67,6 +73,8 @@ IF OBJECT_ID(N'dbo.AGB_Vakif_Basvuru', N'U') IS NOT NULL
 BEGIN
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'AcikAdres') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD AcikAdres NVARCHAR(MAX) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BasvuruNo') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BasvuruNo NVARCHAR(30) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BabaAdi') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BabaAdi NVARCHAR(80) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BabaSagMi') IS NULL
@@ -125,11 +133,33 @@ BEGIN
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD NotOrtalamasi NVARCHAR(20) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BaskaBurs') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BaskaBurs NVARCHAR(10) NULL;
-    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BeyanEvliDegil') IS NULL
-        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BeyanEvliDegil BIT NOT NULL CONSTRAINT DF_AGB_BeyanEv2 DEFAULT(0);
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BeyanDisiplin') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BeyanDisiplin BIT NOT NULL CONSTRAINT DF_AGB_BeyanDi2 DEFAULT(0);
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BeyanOrgunOgretim') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BeyanOrgunOgretim BIT NOT NULL CONSTRAINT DF_AGB_BeyanOr2 DEFAULT(0);
+
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'MedeniDurum') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD MedeniDurum NVARCHAR(20) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'YakinKim') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD YakinKim NVARCHAR(80) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'EsAylikGelir') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD EsAylikGelir NVARCHAR(40) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'EvKiraBedeli') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD EvKiraBedeli NVARCHAR(40) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'AracYili') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD AracYili NVARCHAR(10) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BaskaBursMiktari') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BaskaBursMiktari NVARCHAR(40) NULL;
+END
+GO
+
+IF OBJECT_ID(N'dbo.AGB_Vakif_Basvuru', N'U') IS NOT NULL
+   AND COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BasvuruNo') IS NOT NULL
+   AND NOT EXISTS (
+        SELECT 1 FROM sys.indexes
+        WHERE name = N'IX_AGB_Vakif_Basvuru_No' AND object_id = OBJECT_ID(N'dbo.AGB_Vakif_Basvuru')
+   )
+BEGIN
+    CREATE UNIQUE INDEX IX_AGB_Vakif_Basvuru_No ON dbo.AGB_Vakif_Basvuru(BasvuruNo) WHERE BasvuruNo IS NOT NULL;
 END
 GO

@@ -5,7 +5,7 @@ export function BasvuruForm() {
   return (
     <section className="basvuru-form-page basvuru-form-top">
       <div className="shell">
-        <p className="basvuru-form-back">
+        <p className="basvuru-form-back no-print">
           <Link to="/basvuru">← Başvuru bilgilendirmesine dön</Link>
         </p>
       </div>

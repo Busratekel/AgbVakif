@@ -9,6 +9,10 @@ public sealed class AgbBasvuru
     [Key]
     public Guid Id { get; set; }
 
+    /// <summary>İnsan okunur başvuru no (ör. AGB-2026-000042). TC ile 1-1 eşleşir.</summary>
+    [MaxLength(30)]
+    public string? BasvuruNo { get; set; }
+
     [MaxLength(11)]
     public string TcKimlikNo { get; set; } = "";
 
@@ -31,6 +35,12 @@ public sealed class AgbBasvuru
 
     [MaxLength(20)]
     public string? YakinTelefon { get; set; }
+
+    [MaxLength(80)]
+    public string? YakinKim { get; set; }
+
+    [MaxLength(20)]
+    public string? MedeniDurum { get; set; }
 
     [MaxLength(60)]
     public string? Il { get; set; }
@@ -73,6 +83,9 @@ public sealed class AgbBasvuru
     [MaxLength(10)]
     public string? AnneBabaBirlikte { get; set; }
 
+    [MaxLength(40)]
+    public string? EsAylikGelir { get; set; }
+
     [MaxLength(5)]
     public string? KardesIlkokul { get; set; }
 
@@ -82,11 +95,17 @@ public sealed class AgbBasvuru
     [MaxLength(60)]
     public string? OturdugunuzEv { get; set; }
 
+    [MaxLength(40)]
+    public string? EvKiraBedeli { get; set; }
+
     [MaxLength(10)]
     public string? AracVarMi { get; set; }
 
     [MaxLength(120)]
     public string? AracMarkaModel { get; set; }
+
+    [MaxLength(10)]
+    public string? AracYili { get; set; }
 
     [MaxLength(80)]
     public string? OzelDurumTipi { get; set; }
@@ -132,6 +151,9 @@ public sealed class AgbBasvuru
     [MaxLength(10)]
     public string? BaskaBurs { get; set; }
 
+    [MaxLength(40)]
+    public string? BaskaBursMiktari { get; set; }
+
     public bool BeyanCalismiyor { get; set; }
     public bool BeyanEvliDegil { get; set; }
     public bool BeyanDisiplin { get; set; }
@@ -139,7 +161,6 @@ public sealed class AgbBasvuru
     public bool BeyanOrgunOgretim { get; set; }
     public bool KvkkOnay { get; set; }
 
-    /// <summary>Taslak | Gonderildi | GeriCekildi</summary>
     [MaxLength(30)]
     public string Durum { get; set; } = "Taslak";
 

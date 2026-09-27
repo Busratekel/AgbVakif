@@ -64,7 +64,6 @@ export const KURUMSAL_NAV = [
   { to: '/kurumsal/hakkinda', label: 'Hakkında' },
   { to: '/kurumsal/tarihce', label: 'Tarihçe' },
   { to: '/kurumsal/baskan', label: "Başkan’ın mesajı" },
-  { to: '/kurumsal/ceo', label: 'CEO’nun mesajı' },
   { to: '/kurumsal/yonetim-kurulu', label: 'Yönetim kurulu' },
 ] as const
 
@@ -76,59 +75,52 @@ export const BASVURU_NAV = [
   { to: '/basvuru/form', label: 'Burs başvurusu', end: false },
 ] as const
 
+export const MEDYA_NAV = [
+  { to: '/medya/faaliyet-raporu', label: 'Faaliyet raporu' },
+  { to: '/medya/haber', label: 'Haber' },
+  { to: '/medya/basin-bultenleri', label: 'Basın bültenleri' },
+  { to: '/medya/kurumsal-kimlik', label: 'Kurumsal kimlik' },
+] as const
+
 export const KURUMSAL_HAKKINDA = {
   eyebrow: 'Bizi tanıyın',
-  title: 'Anadolu Güçbirliği Holding',
+  title: 'Anadolu Güçbirliği Vakfı',
   paragraphs: [
-    'Anadolu Güçbirliği Holding, üretim gücünü, yenilikçi yaklaşımı ve sürdürülebilirlik vizyonunu merkezine alan; mobilya ve tekstil sektörlerinde faaliyet gösteren güçlü markalarıyla Türkiye ekonomisine değer katan bir holding yapısıdır. Kurulduğu günden bu yana istikrarlı büyüme anlayışıyla hareket eden Holdingimiz, sanayi, üretim, perakende ve ihracat odaklı faaliyetleriyle hem ulusal hem de uluslararası pazarlarda etkin bir konuma sahiptir.',
-    'Faaliyet gösterdiğimiz tüm alanlarda; kalite, güven, verimlilik ve müşteri memnuniyetini temel ilkelerimiz arasında görüyoruz. Güçlü organizasyon yapımız ve tecrübeli insan kaynağımızla, bünyemizde yer alan markaların rekabet gücünü artırmayı, sürdürülebilir büyümeyi desteklemeyi ve uzun vadeli değer üretmeyi hedefliyoruz.',
-    'Anadolu Güçbirliği Holding, yalnızca ekonomik başarıyı değil; çevresel, sosyal ve yönetişim sorumluluklarını da iş yapış biçiminin ayrılmaz bir parçası olarak benimsemektedir. Enerji verimliliği, yenilenebilir enerji yatırımları, çevre dostu üretim süreçleri ve etik iş anlayışı doğrultusunda yürütülen çalışmalar, gelecek nesillere karşı taşıdığımız sorumluluğun somut göstergeleridir.',
-    'İnsan odaklı yönetim anlayışımız doğrultusunda; çalışanlarımızın gelişimini destekleyen, iş ortaklarımızla uzun soluklu ve güvene dayalı ilişkiler kuran, müşterilerimizin beklentilerini önceliklendiren bir yaklaşım benimsiyoruz. Dijital dönüşüm, kurumsal yönetişim ve sürekli iyileştirme odaklı stratejilerimizle, değişen dünyaya uyum sağlayan dinamik bir yapı ile yolumuza devam ediyoruz.',
-    'Anadolu Güçbirliği Holding olarak; güçlü markalarımız, sağlam kurumsal altyapımız ve sürdürülebilir gelecek vizyonumuzla, faaliyet gösterdiğimiz her alanda kalıcı değer üretmeyi ve ülke ekonomisine katkı sağlamayı kararlılıkla sürdürüyoruz.',
+    'Anadolu Güçbirliği Vakfı toplumsal dayanışmayı güçlendirmek, insan hayatına kalıcı değer katmak ve geleceğe umutla bakan güçlü bir toplumun oluşmasına katkı sağlamak amacıyla 2026 yılında kurulmuştur.',
+    'İnsana, topluma ve sürdürülebilir kalkınmaya verdiği değerden ilham alan Vakfımız; öncelikli olarak Holding ve grup şirketlerinde görev yapan çalışanlarımızın, çocuklarının ve birinci dereceden yakınlarının yaşamlarına katkı sağlamayı, bununla birlikte faaliyetlerini toplumun tüm kesimlerine açık bir anlayışla sürdürmeyi amaçlamaktadır.',
+    'Sağlık, eğitim, spor, ekonomik ve kültürel dayanışma ile toplumsal kalkınma başta olmak üzere farklı alanlarda projeler geliştiren Anadolu Güçbirliği Vakfı; ihtiyaçların doğru tespit edildiği, kaynakların etkin ve şeffaf biçimde değerlendirildiği, sürdürülebilir ve uzun vadeli fayda sağlayan çalışmalar gerçekleştirmeyi hedeflemektedir.',
+    'Yurt içinde ve yurt dışında gerçekleştireceğimiz faaliyetlerle; bireylerin gelişimine destek olmayı, eğitim, sağlık ve fırsat eşitliğine katkı sağlamayı, sosyal dayanışmayı güçlendirmeyi ve toplumun ortak değerlerine sahip çıkan projeleri hayata geçirmeyi önemsiyoruz.',
+    'İyiliği çoğaltan, dayanışmayı güçlendiren ve geleceğe değer bırakan bir anlayışla; birlikte daha güçlü bir gelecek için çalışıyoruz.',
+
   ],
   vizyon:
-    'Sürdürülebilir büyüme anlayışıyla, faaliyet gösterdiğimiz alanlarda güven ve değer yaratan lider bir holding olmayı hedeflemekteyiz.',
+    'İnsanı odağına alan; eğitimden sağlığa, spordan kültüre ve toplumsal kalkınmaya kadar farklı alanlarda sürdürülebilir değer üreten, güvenilir ve örnek gösterilen bir vakıf olarak toplumsal gelişime katkı sağlamak.',
   misyon:
-    'Anadolu Güçbirliği Holding bünyesindeki markalarla; sürdürülebilir büyüme odağında, ulusal ve uluslararası arenada değer üreten, ülke ekonomisine ve toplumsal kalkınmaya katkı sağlayan bir yapı oluşturmayı misyon edinmiştir.',
+    'Çalışanları, aileleri ve toplumun farklı kesimlerinin ihtiyaçlarına yönelik; eğitim, sağlık, spor, ekonomik ve kültürel dayanışma ile toplumsal kalkınma alanlarında erişilebilir, sürdürülebilir ve kalıcı fayda sağlayan çalışmalar gerçekleştirmek. Toplumsal dayanışma kültürünü güçlendirmek, fırsat eşitliğine katkıda bulunmak, ihtiyaç sahiplerine destek olmak ve insan hayatına dokunan projeler geliştirerek bugünden geleceğe değer taşımak.',
 } as const
 
 export const KURUMSAL_TARIHCE = {
-  lead: `Anadolu Güçbirliği Holding, güçlü üretim ve ticaret tecrübesini kurumsal bir yapı altında birleştirmek amacıyla kurulmuştur. Kuruluşundan itibaren sanayi ve üretim odaklı büyüme stratejisiyle hareket eden Holdingimiz, bünyesinde yer alan markalarla yurt içi ve yurt dışı pazarlarda istikrarlı bir gelişim göstermiştir. Zaman içerisinde organizasyon yapısını güçlendiren Anadolu Güçbirliği Holding; sürdürülebilirlik, verimlilik ve yenilikçilik odaklı yatırımlarıyla faaliyet alanlarını genişleterek mobilya ve tekstil sektörlerinde güçlü bir holding yapısına ulaşmayı hedeflemektedir.`,
+  lead: `Anadolu Güçbirliği Vakfı, güçlü üretim ve ticaret tecrübesini kurumsal bir yapı altında birleştirmek amacıyla kurulmuştur. Kuruluşundan itibaren sanayi ve üretim odaklı büyüme stratejisiyle hareket eden Holdingimiz, bünyesinde yer alan markalarla yurt içi ve yurt dışı pazarlarda istikrarlı bir gelişim göstermiştir. Zaman içerisinde organizasyon yapısını güçlendiren Anadolu Güçbirliği Vakfı; sürdürülebilirlik, verimlilik ve yenilikçilik odaklı yatırımlarıyla faaliyet alanlarını genişleterek mobilya ve tekstil sektörlerinde güçlü bir holding yapısına ulaşmayı hedeflemektedir.`,
   highlight:
-    'Anadolu Güçbirliği Holding A.Ş., Temmuz 2024’te Doqu Home, 15 Eylül 2025 itibarıyla ise Bellona markalarını bünyesine katmıştır.',
+    'Anadolu Güçbirliği Vakfı, 27 Eylül 2026 tarihinde kurulmuştur.',
   milestones: [
-    { date: 'Şubat 2024', text: 'Anadolu Güçbirliği Holding A.Ş. kuruldu.' },
-    { date: 'Temmuz 2024', text: 'Doqu Home Tekstil A.Ş. bünyesine katıldı.' },
-    { date: 'Eylül 2025', text: 'Bellona Mobilya A.Ş. bünyesine katıldı.' },
+    { date: '27 Eylül 2026', text: 'Anadolu Güçbirliği Vakfı kuruldu.' },
   ],
 } as const
 
-export const KURUMSAL_CEO = {
-  name: 'Serdar KARAVİL',
-  title: 'Yönetim Kurulu Üyesi & CEO',
-  org: 'Anadolu Güçbirliği Holding',
-  photo: '/kurumsal/serdar-karavil.jpg',
-  greeting: 'Kıymetli İş Ortaklarımız,\nDeğerli Çalışma Arkadaşlarım;',
-  paragraphs: [
-    'Anadolu Güçbirliği Holding olarak; üretim gücünü, kurumsal yönetim anlayışını ve sürdürülebilir büyüme vizyonunu merkeze alan bir yapı ile yolumuza devam ediyoruz. Faaliyet gösterdiğimiz tüm alanlarda yalnızca bugünün ihtiyaçlarını değil, geleceğin beklentilerini de gözeten uzun vadeli bir bakış açısıyla hareket ediyoruz.',
-    'Holdingimiz bünyesinde yer alan güçlü markalarımızla; kalite, güven ve verimlilik ilkelerini temel alıyor, değişen küresel dinamiklere uyum sağlayan esnek ve yenilikçi iş modelleri geliştiriyoruz. Dijital dönüşüm, operasyonel mükemmeliyet ve müşteri odaklı yaklaşım, büyüme stratejimizin ana unsurları arasında yer almaktadır. Tekstil ve mobilya alanında yaptığımız yatırımlar, sadece ticari başarılar değil, aynı zamanda ülkemize katma değer sağlama hedefimizin bir parçasıdır.',
-    'Sürdürülebilirlik, Anadolu Güçbirliği Holding’in stratejik önceliklerinden biridir. Çevresel sorumluluk bilinciyle yürüttüğümüz enerji verimliliği çalışmaları, yenilenebilir enerji yatırımları ve sürdürülebilir üretim uygulamaları; gelecek nesillere karşı taşıdığımız sorumluluğun somut yansımalarıdır. Aynı zamanda sosyal sorumluluk, etik değerler ve şeffaf yönetişim anlayışı ile tüm paydaşlarımız için kalıcı değer üretmeyi hedefliyoruz.',
-    'İnsan odaklı yönetim anlayışımız doğrultusunda; çalışanlarımızın gelişimini destekleyen, iş ortaklarımızla güvene dayalı ilişkiler kuran ve müşterilerimizin beklentilerini merkeze alan bir kurum kültürünü benimsiyoruz. Gücümüzü birliktelikten alıyor, ortak akıl ve güçlü ekip ruhu ile büyümemizi sürdürüyoruz.',
-    'Önümüzdeki dönemde de Anadolu Güçbirliği Holding olarak; yenilikçi, çevreci ve sorumlu iş modelleriyle faaliyet gösterdiğimiz her alanda sürdürülebilir başarıyı hedeflemeye devam edeceğiz. Bu yolculukta bizlere güvenen tüm iş ortaklarımıza ve kıymetli çalışanlarımıza teşekkür eder, birlikte daha güçlü bir gelecek inşa edeceğimize olan inancımı paylaşmak isterim.',
-  ],
-} as const
 
 export const KURUMSAL_BASKAN = {
-  name: 'Abdulkadir KARAVİL',
+  name: 'Lütfi BEŞDOK',
   title: 'Yönetim Kurulu Başkanı',
-  org: 'Anadolu Güçbirliği Holding',
-  photo: '/kurumsal/abdulkadir-karavil.jpg',
+  org: 'Anadolu Güçbirliği Vakfı',
+  photo: '/kurumsal/lutfi-besdok.jpg',
   greeting: 'Değerli Paydaşlarımız,',
   paragraphs: [
-    'Anadolu Güçbirliği Holding olarak; köklü üretim kültürümüzü, güçlü kurumsal değerlerimizle birleştirerek ülkemize, sektörlerimize ve topluma sürdürülebilir katkı sunma hedefiyle yol alıyoruz. Bugün; bünyemizde yer alan markalarımız ve şirketlerimizle yalnızca ekonomik büyümeyi değil, aynı zamanda uzun vadeli değer üretmeyi temel önceliğimiz olarak görüyoruz.',
-    'İçinde bulunduğumuz çağ; hızla değişen tüketici beklentileri, teknoloji dönüşümü ve küresel rekabet dinamikleriyle yeni bir bakış açısını zorunlu kılıyor. Bizler bu dönüşümü; dijitalleşme, verimlilik, kalite, inovasyon ve insan odaklı yönetim anlayışıyla karşılıyor; rekabet gücümüzü artırırken kurumsal sorumluluk bilincimizi de daha ileriye taşıyoruz.',
-    'Holdingimizin temelinde “birlikten doğan güç” anlayışı vardır. Bu anlayış; ortak akla dayalı karar alma kültürümüzü, paydaşlarımızla güçlü ilişkilerimizi ve ekip ruhunu besleyen en önemli değerimizdir. Çalışma arkadaşlarımızın emeği, iş ortaklarımızın güveni ve paydaşlarımızın desteğiyle, ülkemizden dünyaya uzanan başarı hikâyeleri üretmeye devam edeceğimize yürekten inanıyorum.',
-    'Geleceğe yürürken; sürdürülebilir büyüme yaklaşımımız doğrultusunda çevreye duyarlı üretim, etik değerler, şeffaflık ve kurumsal yönetim ilkelerine bağlılık temel rehberimiz olacaktır. Anadolu Güçbirliği Holding’i, faaliyet gösterdiği her alanda daha güçlü, daha yenilikçi ve daha saygın bir konuma taşımak için kararlılıkla çalışmayı sürdüreceğiz. Bu yolculukta emeği geçen tüm çalışma arkadaşlarımıza, iş ortaklarımıza ve paydaşlarımıza teşekkür ediyor; sizleri saygıyla selamlıyorum.',
+    'Anadolu Güçbirliği Vakfı’nı, dayanışmanın gücüne olan inancımızın ve topluma karşı taşıdığımız sorumluluk bilincinin bir yansıması olarak 2026 yılında hayata geçirdik.',
+    'Bizler için güçlü bir gelecek yalnızca ekonomik büyümeyle değil; eğitimde fırsat eşitliğinin güçlenmesi, sağlık hizmetlerine erişimin desteklenmesi, kültürel değerlerin yaşatılması ve ihtiyaç anında insanların birbirine omuz verebilmesiyle mümkündür.',
+    'Vakfımızın attığı her adımda güven, şeffaflık, sürdürülebilirlik ve insan odaklı yaklaşımı temel ilke olarak benimseyeceğiz.',
+    'İnanıyoruz ki iyilik paylaşıldıkça çoğalır, dayanışma güçlendikçe toplumlar daha sağlam bir geleceğe yürür.',
+    'Birlikte üreten, birlikte paylaşan ve birlikte güçlenen bir gelecek için çalışmaya devam edeceğiz.',
   ],
 } as const
 
@@ -138,76 +130,35 @@ export const KURUMSAL_YONETIM: {
   photo?: string
 }[] = [
   {
-    name: 'Abdulkadir KARAVİL',
+    name: 'Lütfi BEŞDOK',
     title: 'Yönetim Kurulu Başkanı',
-    photo: '/kurumsal/abdulkadir-karavil.jpg',
-  },
-  {
-    name: 'Ahmet Kamil ŞİRİKÇİ',
-    title: 'Yönetim Kurulu Başkan Vekili',
-    photo: '/kurumsal/ahmet-kamil-sirikci.jpg',
   },
   {
     name: 'Serdar KARAVİL',
-    title: 'Yönetim Kurulu Üyesi & CEO',
-    photo: '/kurumsal/serdar-karavil.jpg',
+    title: 'Yönetim Kurulu Başkan Vekili',
   },
   {
-    name: 'Mustafa SİVİŞ',
+    name: 'Muharrem YERE',
     title: 'Yönetim Kurulu Üyesi',
-    photo: '/kurumsal/mustafa-sivis.jpg',
   },
   {
-    name: 'Lütfi BEŞDOK',
+    name: 'Adem OFRAZ',
     title: 'Yönetim Kurulu Üyesi',
-    photo: '/kurumsal/lutfi-besdok.jpg',
   },
   {
-    name: 'Hakan ÖZTÜRK',
+    name: 'Ömer ARSLAN',
     title: 'Yönetim Kurulu Üyesi',
-    photo: '/kurumsal/hakan-ozturk.jpg',
   },
   {
-    name: 'Mehmet KARAVİL',
+    name: 'Doğanur Atabay IŞIK',
     title: 'Yönetim Kurulu Üyesi',
-    photo: '/kurumsal/mehmet-karavil.jpg',
+  },
+  {
+    name: 'Kübra ÖZPINAR',
+    title: 'Yönetim Kurulu Üyesi',
   },
 ]
 
-export const SUPPORT_AREAS = [
-  {
-    title: 'Eğitim',
-    text: 'Okul, üniversite ve mesleki gelişim süreçlerinde burs, eğitim materyali, ulaşım veya eğitim sürekliliğini bozan mali engeller için destek talep edilebilir. Belgelenebilir eğitim ihtiyacı ve devamlılık esas alınır.',
-  },
-  {
-    title: 'Sağlık',
-    text: 'Tedavi, tetkik, ilaç, cihaz veya tedaviye erişimi etkileyen maliyetler için başvurular alınır. Sağlık raporları, fatura/proforma ve aciliyet bilgisi değerlendirmede belirleyicidir.',
-  },
-  {
-    title: 'Spor',
-    text: 'Sporcu gelişimi, kulüp/federasyon süreçleri, ekipman veya yarışma katılımı gibi talepler değerlendirilir. Özellikle çocuk ve gençlerin spora erişimini güçlendiren başvurular önceliklidir.',
-  },
-  {
-    title: 'Ekonomik / sosyal destek',
-    text: 'Temel yaşam ihtiyacı, geçici ekonomik zorluk veya sosyal dayanışma gerektiren durumlarda destek başvurusu yapılabilir. İhtiyaç belgesi ve mevcut destek kaynakları sorulabilir.',
-  },
-  {
-    title: 'Kültür ve sanat',
-    text: 'Kültürel üretime katılım, sanat eğitimi veya toplumun kültürel hayata erişimini artıran bireysel ve kurumsal talepler bu başlıkta incelenir.',
-  },
-  {
-    title: 'Toplumsal kalkınma',
-    text: 'Yerel kalkınma, istihdamı güçlendiren sosyal projeler ve toplum yararına sürdürülebilir çalışmalar için iş birliği ve destek talepleri alınır.',
-  },
-  {
-    title: 'Afet / acil durum',
-    text: 'Afet, ani sağlık krizi veya ertelenmesi halinde ciddi sonuç doğurabilecek acil ihtiyaçlarda hızlı değerlendirme mekanizması işletilir. Destekleyici belgeler mümkün olduğunca erken iletilmelidir.',
-  },
-  {
-    title: 'Proje / kurumsal iş birliği',
-    text: 'STK’lar, kamu kurumları ve sosyal etki odaklı kuruluşlarla ortak proje, protokol ve kurumsal destek başvuruları bu kategoride değerlendirilir.',
-  },
-] as const
 
 /** Genel bilgilendirme — başvuru koşulları */
 export const BASVURU_KOSULLAR = [

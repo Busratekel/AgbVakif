@@ -21,14 +21,17 @@ export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
 
 export type BasvuruData = {
   id?: string
+  basvuruNo?: string
   tcKimlikNoMasked?: string
   telefonMasked?: string
   ad: string
   soyad: string
   dogumTarihi: string
   dogumYeri: string
+  medeniDurum: string
   eposta: string
   yakinTelefon: string
+  yakinKim: string
   il: string
   ilce: string
   acikAdres: string
@@ -44,11 +47,14 @@ export type BasvuruData = {
   anneMeslegi: string
   anneAylikGelir: string
   anneBabaBirlikte: string
+  esAylikGelir: string
   kardesIlkokul: string
   kardesYuksek: string
   oturdugunuzEv: string
+  evKiraBedeli: string
   aracVarMi: string
   aracMarkaModel: string
+  aracYili: string
   ozelDurumTipi: string
   ozelDurum: string
   // Eğitim
@@ -66,9 +72,9 @@ export type BasvuruData = {
   yksSiralamasi: string
   notOrtalamasi: string
   baskaBurs: string
+  baskaBursMiktari: string
   // Beyanlar
   beyanCalismiyor: boolean
-  beyanEvliDegil: boolean
   beyanDisiplin: boolean
   beyanAdliSicil: boolean
   beyanOrgunOgretim: boolean
@@ -80,8 +86,10 @@ export const emptyBasvuru = (): BasvuruData => ({
   soyad: '',
   dogumTarihi: '',
   dogumYeri: '',
+  medeniDurum: '',
   eposta: '',
   yakinTelefon: '',
+  yakinKim: '',
   il: '',
   ilce: '',
   acikAdres: '',
@@ -96,11 +104,14 @@ export const emptyBasvuru = (): BasvuruData => ({
   anneMeslegi: '',
   anneAylikGelir: '',
   anneBabaBirlikte: '',
+  esAylikGelir: '',
   kardesIlkokul: '0',
   kardesYuksek: '0',
   oturdugunuzEv: '',
+  evKiraBedeli: '',
   aracVarMi: '',
   aracMarkaModel: '',
+  aracYili: '',
   ozelDurumTipi: '',
   ozelDurum: '',
   universite: '',
@@ -116,8 +127,8 @@ export const emptyBasvuru = (): BasvuruData => ({
   yksSiralamasi: '',
   notOrtalamasi: '',
   baskaBurs: '',
+  baskaBursMiktari: '',
   beyanCalismiyor: false,
-  beyanEvliDegil: false,
   beyanDisiplin: false,
   beyanAdliSicil: false,
   beyanOrgunOgretim: false,
@@ -135,6 +146,8 @@ export const OZEL_DURUM_TIPLERI = [
 export const EVET_HAYIR = ['Evet', 'Hayır'] as const
 
 export const SAG_MI = ['Evet', 'Hayır'] as const
+
+export const MEDENI_DURUM = ['Bekar', 'Evli'] as const
 
 export const EV_DURUMU = [
   'Kendimize ait',
@@ -166,7 +179,7 @@ export function isYeniOgrenci(sinif: string) {
 }
 
 export function isAraSinif(sinif: string) {
-  return ['Hazırlık','1', '2', '3', '4', '5', '6'].includes(sinif)
+  return ['Hazırlık', '1', '2', '3', '4', '5', '6'].includes(sinif)
 }
 
 export const SINIFLAR = [
@@ -182,5 +195,6 @@ export const SINIFLAR = [
 
 const yearNow = new Date().getFullYear()
 export const YILLAR = Array.from({ length: 15 }, (_, i) => String(yearNow + 2 - i))
+export const ARAC_YILLARI = Array.from({ length: 45 }, (_, i) => String(yearNow - i))
 
 export const KARDEŞ_SAYILARI = Array.from({ length: 11 }, (_, i) => String(i))
