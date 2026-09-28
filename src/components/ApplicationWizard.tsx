@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FORM_API_URL, SITE, STATUSES } from '../config'
 import { formatMoneyInput } from '../money'
 import { ILLER, ilcelerOf } from '../data/turkiye'
@@ -8,28 +9,59 @@ import {
   emptyBasvuru,
   EV_DURUMU,
   EVET_HAYIR,
+  HANE_KISI_SAYILARI,
   isAraSinif,
   isYeniOgrenci,
   KARDEŞ_SAYILARI,
+  KAYIT_YILLARI,
+  BITIRME_YILLARI,
   KONAKLAMA,
   MEDENI_DURUM,
   OZEL_DURUM_TIPLERI,
   SAG_MI,
   SINIFLAR,
   WIZARD_STEPS,
-  YILLAR,
   YKS_DILIMLERI,
   type BasvuruData,
   type WizardStep,
 } from '../basvuruTypes'
 import { validateTCKN } from '../tcKimlik'
 import { KvkkContent } from './KvkkContent'
+import { BasvuruProfil } from './BasvuruProfil'
 
 type ApiBasvuru = Record<string, unknown> & {
   id: string
   tcKimlikNoMasked: string
   telefonMasked: string
   durum: string
+}
+
+function asDiger(value: string, options: string[]) {
+  const v = value.trim()
+  if (!v) return { choice: '', text: '' }
+  if (options.includes(v)) return { choice: v, text: '' }
+  return { choice: 'Diğer', text: v }
+}
+
+function shownName(choice: string, text: string) {
+  return choice === 'Diğer' ? text.trim() || 'Diğer' : choice
+}
+
+function isoDate(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Başvuru gününde 25 yaşını doldurmamış olmak. 25. yaş günü elenir. */
+function earliestBirthForUnder25(now = new Date()) {
+  const y = now.getFullYear() - 25
+  const m = now.getMonth()
+  const last = new Date(y, m + 1, 0).getDate()
+  const turned = new Date(y, m, Math.min(now.getDate(), last))
+  turned.setDate(turned.getDate() + 1)
+  return isoDate(turned)
 }
 
 function str(v: unknown) {
@@ -68,7 +100,11 @@ function mapApi(data: ApiBasvuru): BasvuruData {
     anneMeslegi: str(data.anneMeslegi),
     anneAylikGelir: str(data.anneAylikGelir),
     anneBabaBirlikte: str(data.anneBabaBirlikte),
+    birlikteYasadigiKisiler: /^\d+$/.test(str(data.birlikteYasadigiKisiler).trim())
+      ? String(Number(str(data.birlikteYasadigiKisiler).trim()))
+      : '',
     esAylikGelir: str(data.esAylikGelir),
+    haneGeliri: str(data.haneGeliri),
     kardesIlkokul: str(data.kardesIlkokul) || '0',
     kardesYuksek: str(data.kardesYuksek) || '0',
     oturdugunuzEv: str(data.oturdugunuzEv),
@@ -78,9 +114,25 @@ function mapApi(data: ApiBasvuru): BasvuruData {
     aracYili: str(data.aracYili),
     ozelDurumTipi: str(data.ozelDurumTipi),
     ozelDurum: str(data.ozelDurum),
-    universite: str(data.universite),
-    fakulte: str(data.fakulte),
-    bolum: str(data.bolum),
+    ...(() => {
+      const uni = asDiger(str(data.universite), Object.keys(UNIVERSITE_AGACI))
+      const facOptions = uni.choice && uni.choice !== 'Diğer'
+        ? Object.keys(UNIVERSITE_AGACI[uni.choice] ?? {})
+        : ['Diğer']
+      const fac = asDiger(str(data.fakulte), facOptions)
+      const bolOptions = uni.choice && fac.choice && fac.choice !== 'Diğer'
+        ? (UNIVERSITE_AGACI[uni.choice]?.[fac.choice] ?? ['Diğer'])
+        : ['Diğer']
+      const bol = asDiger(str(data.bolum), bolOptions)
+      return {
+        universite: uni.choice,
+        universiteAdi: uni.text,
+        fakulte: fac.choice,
+        fakulteAdi: fac.text,
+        bolum: bol.choice,
+        bolumAdi: bol.text,
+      }
+    })(),
     kayitYili: str(data.kayitYili),
     sinif: str(data.sinif),
     bitirmeYili: str(data.bitirmeYili),
@@ -113,9 +165,11 @@ function lettersOnly(value: string) {
 }
 
 export function ApplicationWizard() {
-  const [step, setStep] = useState<WizardStep>('kvkk')
-  const [kvkkOk, setKvkkOk] = useState(false)
-  const [kvkkReadToEnd, setKvkkReadToEnd] = useState(false)
+  const [searchParams] = useSearchParams()
+  const profilGiris = searchParams.get('giris') === '1'
+  const [step, setStep] = useState<WizardStep>(profilGiris ? 'kimlik' : 'kvkk')
+  const [kvkkOk, setKvkkOk] = useState(profilGiris)
+  const [kvkkReadToEnd, setKvkkReadToEnd] = useState(profilGiris)
   const kvkkScrollRef = useRef<HTMLDivElement>(null)
   const [donem, setDonem] = useState({
     baslik: '2026–2027 Lisans Başvurusu',
@@ -125,8 +179,10 @@ export function ApplicationWizard() {
       'Başvuru yaklaşık 10 dakika sürer. Devam etmek için aydınlatma metnini sonuna kadar okuyup onaylamanız gerekir. Kimliğiniz, cep telefonunuza gönderilecek tek kullanımlık kod ile doğrulanır.',
     donemMetni: 'Başvuru dönemi yükleniyor…',
     acik: true,
+    minDogumTarihi: '',
+    yasSiniri: '',
   })
-  const [returning, setReturning] = useState(false)
+  const [returning, setReturning] = useState(profilGiris)
   const [tc, setTc] = useState('')
   const [telefon, setTelefon] = useState('')
   const [sessionId, setSessionId] = useState('')
@@ -140,6 +196,7 @@ export function ApplicationWizard() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [wasUpdate, setWasUpdate] = useState(false)
+  const [fromProfil, setFromProfil] = useState(false)
   const alertRef = useRef<HTMLDivElement>(null)
 
   function update(patch: Partial<BasvuruData>) {
@@ -163,10 +220,24 @@ export function ApplicationWizard() {
   }
 
   const stepIndex = WIZARD_STEPS.findIndex((s) => s.id === step)
+  const yasSiniri = donem.yasSiniri || earliestBirthForUnder25()
+  const enErkenDogum = [yasSiniri, donem.minDogumTarihi].filter(Boolean).sort().at(-1) ?? ''
   const ilceList = useMemo(() => ilcelerOf(data.il), [data.il])
   const fakulteList = useMemo(() => fakultelerOf(data.universite), [data.universite])
-  const bolumList = useMemo(() => bolumlerOf(data.universite, data.fakulte), [data.universite, data.fakulte])
+  const bolumList = useMemo(
+    () => bolumlerOf(data.universite, data.fakulte),
+    [data.universite, data.fakulte],
+  )
   const universiteList = useMemo(() => Object.keys(UNIVERSITE_AGACI), [])
+
+  useEffect(() => {
+    if (!profilGiris) return
+    setReturning(true)
+    setKvkkOk(true)
+    setKvkkReadToEnd(true)
+    setError('')
+    setStep((s) => (s === 'kvkk' || s === 'kimlik' || s === 'sms' ? 'kimlik' : s))
+  }, [profilGiris])
 
   useEffect(() => {
     let cancelled = false
@@ -182,6 +253,8 @@ export function ApplicationWizard() {
             formBaslikNot: json.formBaslikNot ?? '',
             donemMetni: json.donemMetni,
             acik: Boolean(json.acik),
+            minDogumTarihi: typeof json.minDogumTarihi === 'string' ? json.minDogumTarihi : '',
+            yasSiniri: typeof json.yasSiniri === 'string' ? json.yasSiniri : '',
           })
         }
       } catch {
@@ -249,6 +322,9 @@ export function ApplicationWizard() {
       setStep(nextStep)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bir hata oluştu')
+      requestAnimationFrame(() => {
+        alertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
     } finally {
       setLoading(false)
     }
@@ -302,10 +378,22 @@ export function ApplicationWizard() {
         headers: authHeaders(result.accessToken),
       })
       const meJson = await me.json()
-      if (me.ok && meJson.success) {
-        setData(mapApi(meJson.data as ApiBasvuru))
+      if (!me.ok || !meJson.success) {
+        throw new Error(meJson.message || 'Başvuru getirilemedi')
       }
-      setStep('bilgiler')
+      const mapped = mapApi(meJson.data as ApiBasvuru)
+      setData(mapped)
+      const gonderilmis = ['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'].includes(mapped.durum ?? '')
+      if (gonderilmis) {
+        setFromProfil(true)
+        setStep('profil')
+      } else if (!donem.acik) {
+        setError('Başvuru dönemi kapalı. Yeni başvuru alınmıyor.')
+        setStep('kvkk')
+      } else {
+        setFromProfil(false)
+        setStep('bilgiler')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bir hata oluştu')
     } finally {
@@ -314,12 +402,14 @@ export function ApplicationWizard() {
   }
 
   function showFieldErrors(entries: { key: string; message: string }[]) {
-    setError('')
+    setError(entries.length
+      ? 'Zorunlu alanlar eksik. İşaretli alanları doldurup tekrar deneyin.'
+      : '')
     setFieldErrors(Object.fromEntries(entries.map((e) => [e.key, e.message])))
     requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>('label.is-invalid, .beyan-list.is-invalid')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const target = document.querySelector<HTMLElement>('label.is-invalid, .beyan-list.is-invalid')
+        ?? alertRef.current
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }
 
@@ -343,6 +433,14 @@ export function ApplicationWizard() {
     if (!data.ad.trim()) missing.push({ key: 'ad', message: req })
     if (!data.soyad.trim()) missing.push({ key: 'soyad', message: req })
     if (!data.dogumTarihi) missing.push({ key: 'dogumTarihi', message: req })
+    else if (enErkenDogum && data.dogumTarihi < enErkenDogum) {
+      missing.push({
+        key: 'dogumTarihi',
+        message: data.dogumTarihi < yasSiniri
+          ? 'Başvuru tarihinde 25 yaşını doldurmuş olanlar başvuru yapamaz.'
+          : `${enErkenDogum.split('-').reverse().join('.')} tarihinden önce doğanlar başvuru yapamaz.`,
+      })
+    }
     if (!data.dogumYeri) missing.push({ key: 'dogumYeri', message: req })
     if (!data.medeniDurum) missing.push({ key: 'medeniDurum', message: req })
     if (!data.eposta.trim()) missing.push({ key: 'eposta', message: req })
@@ -356,7 +454,6 @@ export function ApplicationWizard() {
       missing.push({ key: 'acikAdres', message: 'Açık adres en az 10 karakter olmalıdır' })
     }
     if (!data.statu) missing.push({ key: 'statu', message: req })
-    if (!data.kategori) missing.push({ key: 'kategori', message: req })
     return missing
   }
 
@@ -379,6 +476,12 @@ export function ApplicationWizard() {
     if (data.medeniDurum === 'Evli' && data.esAylikGelir === '') {
       missing.push({ key: 'esAylikGelir', message: req })
     }
+    if (data.birlikteYasadigiKisiler === '') {
+      missing.push({ key: 'birlikteYasadigiKisiler', message: req })
+    }
+    if (data.haneGeliri === '') {
+      missing.push({ key: 'haneGeliri', message: req })
+    }
     if (!data.oturdugunuzEv) missing.push({ key: 'oturdugunuzEv', message: req })
     if (data.oturdugunuzEv === 'Kira' && data.evKiraBedeli === '') {
       missing.push({ key: 'evKiraBedeli', message: req })
@@ -390,8 +493,17 @@ export function ApplicationWizard() {
     }
     if (!data.ozelDurumTipi) missing.push({ key: 'ozelDurumTipi', message: req })
     if (!data.universite) missing.push({ key: 'universite', message: req })
+    if (data.universite === 'Diğer' && !data.universiteAdi.trim()) {
+      missing.push({ key: 'universiteAdi', message: 'Üniversite adını yazın' })
+    }
     if (!data.fakulte) missing.push({ key: 'fakulte', message: req })
+    if (data.fakulte === 'Diğer' && !data.fakulteAdi.trim()) {
+      missing.push({ key: 'fakulteAdi', message: 'Fakülte adını yazın' })
+    }
     if (!data.bolum) missing.push({ key: 'bolum', message: req })
+    if (data.bolum === 'Diğer' && !data.bolumAdi.trim()) {
+      missing.push({ key: 'bolumAdi', message: 'Bölüm adını yazın' })
+    }
     if (!data.kayitYili) missing.push({ key: 'kayitYili', message: req })
     if (!data.sinif) missing.push({ key: 'sinif', message: req })
     if (!data.bitirmeYili) missing.push({ key: 'bitirmeYili', message: req })
@@ -499,7 +611,7 @@ export function ApplicationWizard() {
   return (
     <section className="section application wizard" id="basvuru-form">
       <div className="shell">
-        <ol className="wizard-steps">
+        {step !== 'profil' && !(returning && (step === 'kimlik' || step === 'sms')) ? <ol className="wizard-steps">
           {WIZARD_STEPS.map((item, index) => {
             const done = index < stepIndex
             const current = index === stepIndex
@@ -510,7 +622,7 @@ export function ApplicationWizard() {
               </li>
             )
           })}
-        </ol>
+        </ol> : null}
 
         <div className="wizard-banner">
           <strong>{donem.baslik}</strong>
@@ -579,10 +691,7 @@ export function ApplicationWizard() {
                 type="button"
                 className="linkish returning-link"
                 onClick={() => {
-                  if (!donem.acik) {
-                    setError('Başvuru dönemi kapalı; mevcut başvuru görüntüleme için dönem açık olmalıdır.')
-                    return
-                  }
+                  setError('')
                   setReturning(true)
                   setKvkkOk(true)
                   setKvkkReadToEnd(true)
@@ -596,10 +705,11 @@ export function ApplicationWizard() {
 
           {step === 'kimlik' && (
             <>
-              <h2>Kimlik Doğrulama</h2>
+              <h2>{returning ? 'Başvuruma giriş' : 'Kimlik Doğrulama'}</h2>
               <p className="wizard-lead">
-                T.C. kimlik numaranızı ve cep telefonunuzu girin.
-                {returning ? ' Mevcut başvurunuz varsa bilgiler getirilecektir.' : ''}
+                {returning
+                  ? 'Başvuru durumunuzu görmek, başvurunuzu güncellemek veya istenilen belgeleri göndermek için T.C. kimlik numaranızı ve cep telefonunuzu girin. SMS ile doğrulama yapılır.'
+                  : 'T.C. kimlik numaranızı ve cep telefonunuzu girin.'}
               </p>
               <div className="form-grid">
                 <label className={tc.length === 11 && !validateTCKN(tc) ? 'is-invalid' : undefined}>
@@ -629,7 +739,11 @@ export function ApplicationWizard() {
                 </label>
               </div>
               <div className="wizard-actions space-between">
-                <button type="button" className="btn btn-ghost-dark" onClick={() => setStep('kvkk')}>← Geri</button>
+                {returning ? (
+                  <Link to="/" className="btn btn-ghost-dark">← Ana sayfa</Link>
+                ) : (
+                  <button type="button" className="btn btn-ghost-dark" onClick={() => setStep('kvkk')}>← Geri</button>
+                )}
                 <button
                   type="button"
                   className="btn"
@@ -711,7 +825,16 @@ export function ApplicationWizard() {
                 <label className={isInvalid('dogumTarihi')}>
                   <span>Doğum tarihi<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('dogumTarihi')}
-                  <input type="date" value={data.dogumTarihi} onChange={(e) => update({ dogumTarihi: e.target.value })} />
+                  <input
+                    type="date"
+                    value={data.dogumTarihi}
+                    min={enErkenDogum || undefined}
+                    onChange={(e) => update({ dogumTarihi: e.target.value })}
+                  />
+                  <small className="field-hint">
+                    Başvuru tarihinde 25 yaşını doldurmamış olmak gerekir.
+                    {enErkenDogum ? ` ${enErkenDogum.split('-').reverse().join('.')} ve sonrası doğumlular başvurabilir.` : ''}
+                  </small>
                 </label>
                 <label className={isInvalid('dogumYeri')}>
                   <span>Doğum yeri<abbr className="req" title="Zorunlu">*</abbr></span>
@@ -815,7 +938,7 @@ export function ApplicationWizard() {
               </div>
 
               <div className="wizard-actions space-between">
-                <button type="button" className="btn btn-ghost-dark" onClick={() => setStep('sms')}>← Geri</button>
+                <button type="button" className="btn btn-ghost-dark" onClick={() => setStep(fromProfil ? 'profil' : 'sms')}>← Geri</button>
                 <button type="button" className="btn" disabled={loading} onClick={() => void goBilgilerNext()}>
                   {loading ? 'Kaydediliyor…' : 'Devam et →'}
                 </button>
@@ -915,6 +1038,7 @@ export function ApplicationWizard() {
                     <option value="">Seçiniz</option>
                     {EVET_HAYIR.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
+                  <small className="field-hint">Boşanmış / ayrı yaşıyorlarsa Hayır seçiniz.</small>
                 </label>
                 {data.medeniDurum === 'Evli' ? (
                   <label className={isInvalid('esAylikGelir')}>
@@ -929,6 +1053,32 @@ export function ApplicationWizard() {
                     <small className="field-hint">Geliri yoksa 0 yazınız.</small>
                   </label>
                 ) : null}
+
+                <label className={isInvalid('birlikteYasadigiKisiler')}>
+                  <span>Birlikte yaşadığınız kişi sayısı<abbr className="req" title="Zorunlu">*</abbr></span>
+                  {fieldError('birlikteYasadigiKisiler')}
+                  <select
+                    value={data.birlikteYasadigiKisiler}
+                    onChange={(e) => update({ birlikteYasadigiKisiler: e.target.value })}
+                  >
+                    <option value="">Seçiniz</option>
+                    {HANE_KISI_SAYILARI.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <small className="field-hint">Sizinle aynı evde yaşayan kişi sayısı (kendiniz hariç). Yalnız yaşıyorsanız 0 seçiniz.</small>
+                </label>
+
+                <label className={isInvalid('haneGeliri')}>
+                  <span>Hane geliri (₺)<abbr className="req" title="Zorunlu">*</abbr></span>
+                  {fieldError('haneGeliri')}
+                  <input
+                    value={data.haneGeliri}
+                    onChange={(e) => update({ haneGeliri: formatMoneyInput(e.target.value) })}
+                    placeholder="örn. 45.000"
+                    inputMode="numeric"
+                  />
+                  <small className="field-hint">Aynı evde yaşayanların toplam aylık net geliri. Gelir yoksa 0 yazınız.</small>
+                </label>
+
                 <label>
                   <span>İlkokul/ortaokul/lisede okuyan kardeş<abbr className="req" title="Zorunlu">*</abbr></span>
                   <select value={data.kardesIlkokul} onChange={(e) => update({ kardesIlkokul: e.target.value })}>
@@ -1046,8 +1196,11 @@ export function ApplicationWizard() {
                     onChange={(e) =>
                       update({
                         universite: e.target.value,
+                        universiteAdi: e.target.value === 'Diğer' ? data.universiteAdi : '',
                         fakulte: '',
+                        fakulteAdi: '',
                         bolum: '',
+                        bolumAdi: '',
                       })
                     }
                   >
@@ -1055,6 +1208,17 @@ export function ApplicationWizard() {
                     {universiteList.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
+                {data.universite === 'Diğer' ? (
+                  <label className={`full ${isInvalid('universiteAdi')}`}>
+                    <span>Üniversite adı<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('universiteAdi')}
+                    <input
+                      value={data.universiteAdi}
+                      onChange={(e) => update({ universiteAdi: e.target.value })}
+                      placeholder="Üniversitenin adını yazın"
+                    />
+                  </label>
+                ) : null}
                 <label className={isInvalid('fakulte')}>
                   <span>Fakülte<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('fakulte')}
@@ -1064,7 +1228,9 @@ export function ApplicationWizard() {
                     onChange={(e) =>
                       update({
                         fakulte: e.target.value,
+                        fakulteAdi: e.target.value === 'Diğer' ? data.fakulteAdi : '',
                         bolum: '',
+                        bolumAdi: '',
                       })
                     }
                   >
@@ -1072,24 +1238,51 @@ export function ApplicationWizard() {
                     {fakulteList.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
+                {data.fakulte === 'Diğer' ? (
+                  <label className={`full ${isInvalid('fakulteAdi')}`}>
+                    <span>Fakülte adı<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('fakulteAdi')}
+                    <input
+                      value={data.fakulteAdi}
+                      onChange={(e) => update({ fakulteAdi: e.target.value })}
+                      placeholder="Fakültenin adını yazın"
+                    />
+                  </label>
+                ) : null}
                 <label className={`full ${isInvalid('bolum')}`}>
                   <span>Bölüm<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('bolum')}
                   <select
                     value={data.bolum}
                     disabled={!data.fakulte}
-                    onChange={(e) => update({ bolum: e.target.value })}
+                    onChange={(e) =>
+                      update({
+                        bolum: e.target.value,
+                        bolumAdi: e.target.value === 'Diğer' ? data.bolumAdi : '',
+                      })
+                    }
                   >
                     <option value="">Seçiniz</option>
                     {bolumList.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </label>
+                {data.bolum === 'Diğer' ? (
+                  <label className={`full ${isInvalid('bolumAdi')}`}>
+                    <span>Bölüm adı<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('bolumAdi')}
+                    <input
+                      value={data.bolumAdi}
+                      onChange={(e) => update({ bolumAdi: e.target.value })}
+                      placeholder="Bölümün adını yazın"
+                    />
+                  </label>
+                ) : null}
                 <label className={isInvalid('kayitYili')}>
                   <span>Üniversiteye kayıt yılı<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('kayitYili')}
                   <select value={data.kayitYili} onChange={(e) => update({ kayitYili: e.target.value })}>
                     <option value="">Seçiniz</option>
-                    {YILLAR.map((y) => <option key={y} value={y}>{y}</option>)}
+                    {KAYIT_YILLARI.map((y) => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </label>
                 <label className={isInvalid('sinif')}>
@@ -1115,7 +1308,7 @@ export function ApplicationWizard() {
                   {fieldError('bitirmeYili')}
                   <select value={data.bitirmeYili} onChange={(e) => update({ bitirmeYili: e.target.value })}>
                     <option value="">Seçiniz</option>
-                    {YILLAR.map((y) => <option key={y} value={y}>{y}</option>)}
+                    {BITIRME_YILLARI.map((y) => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </label>
                 <label className={isInvalid('hazirlik')}>
@@ -1379,6 +1572,18 @@ export function ApplicationWizard() {
                         </tr>
                       ) : null}
                       <tr>
+                        <th>Anne-baba birlikte mi?</th>
+                        <td>{data.anneBabaBirlikte || '—'}</td>
+                      </tr>
+                      <tr>
+                        <th>Birlikte yaşadığı kişi sayısı</th>
+                        <td>{data.birlikteYasadigiKisiler === '' ? '—' : data.birlikteYasadigiKisiler}</td>
+                      </tr>
+                      <tr>
+                        <th>Hane geliri</th>
+                        <td>{data.haneGeliri ? `${data.haneGeliri} ₺` : '—'}</td>
+                      </tr>
+                      <tr>
                         <th>Kardeşler (ilk-orta-lise / yükseköğretim)</th>
                         <td>{data.kardesIlkokul || '0'} / {data.kardesYuksek || '0'}</td>
                       </tr>
@@ -1415,7 +1620,13 @@ export function ApplicationWizard() {
                     <tbody>
                       <tr>
                         <th>Okul</th>
-                        <td>{data.universite} · {data.fakulte} · {data.bolum}</td>
+                        <td>
+                          {shownName(data.universite, data.universiteAdi)}
+                          {' · '}
+                          {shownName(data.fakulte, data.fakulteAdi)}
+                          {' · '}
+                          {shownName(data.bolum, data.bolumAdi)}
+                        </td>
                       </tr>
                       <tr>
                         <th>Sınıf / Bitirme</th>
@@ -1467,13 +1678,26 @@ export function ApplicationWizard() {
                   <button type="button" className="btn" disabled={loading} onClick={() => void submitFinal()}>
                     {loading
                       ? 'Kaydediliyor…'
-                      : data.durum === 'Gonderildi'
+                      : data.durum === 'Gonderildi' || data.durum === 'Inceleniyor'
                         ? 'Başvuruyu güncelle'
                         : 'Başvuruyu gönder'}
                   </button>
                 </div>
               </div>
             </>
+          )}
+
+          {step === 'profil' && (
+            <BasvuruProfil
+              data={data}
+              accessToken={accessToken}
+              donemAcik={donem.acik}
+              onEdit={() => {
+                setError('')
+                setFromProfil(true)
+                setStep('bilgiler')
+              }}
+            />
           )}
 
           {step === 'sonuc' && (
@@ -1514,16 +1738,12 @@ export function ApplicationWizard() {
                   type="button"
                   className="btn"
                   onClick={() => {
-                    setStep('kvkk')
-                    setKvkkOk(false)
-                    setAccessToken('')
-                    setWasUpdate(false)
-                    setData(emptyBasvuru())
-                    setTc('')
-                    setTelefon('')
+                    setError('')
+                    setFromProfil(true)
+                    setStep('profil')
                   }}
                 >
-                  Yeni başvuru
+                  Başvurumu gör
                 </button>
               </div>
             </>
@@ -1548,7 +1768,7 @@ function payloadFromData(data: BasvuruData) {
     ilce: data.ilce,
     acikAdres: data.acikAdres,
     statu: data.statu,
-    kategori: data.kategori,
+    kategori: data.kategori || null,
     babaAdi: data.babaAdi,
     babaSagMi: data.babaSagMi,
     babaMeslegi: data.babaMeslegi,
@@ -1557,8 +1777,10 @@ function payloadFromData(data: BasvuruData) {
     anneSagMi: data.anneSagMi,
     anneMeslegi: data.anneMeslegi,
     anneAylikGelir: data.anneSagMi === 'Evet' ? data.anneAylikGelir : null,
-    anneBabaBirlikte: data.anneBabaBirlikte,
+    anneBabaBirlikte: data.anneBabaBirlikte || null,
+    birlikteYasadigiKisiler: data.birlikteYasadigiKisiler || null,
     esAylikGelir: data.medeniDurum === 'Evli' ? data.esAylikGelir : null,
+    haneGeliri: data.haneGeliri || null,
     kardesIlkokul: data.kardesIlkokul,
     kardesYuksek: data.kardesYuksek,
     oturdugunuzEv: data.oturdugunuzEv,
@@ -1568,9 +1790,9 @@ function payloadFromData(data: BasvuruData) {
     aracYili: data.aracVarMi === 'Evet' ? data.aracYili || null : null,
     ozelDurumTipi: data.ozelDurumTipi,
     ozelDurum: data.ozelDurumTipi && data.ozelDurumTipi !== 'Yok' ? data.ozelDurum || null : null,
-    universite: data.universite,
-    fakulte: data.fakulte,
-    bolum: data.bolum,
+    universite: shownName(data.universite, data.universiteAdi),
+    fakulte: shownName(data.fakulte, data.fakulteAdi),
+    bolum: shownName(data.bolum, data.bolumAdi),
     kayitYili: data.kayitYili,
     sinif: data.sinif,
     bitirmeYili: data.bitirmeYili,

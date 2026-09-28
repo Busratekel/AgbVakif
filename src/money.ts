@@ -24,6 +24,23 @@ export function formatMoneyInput(raw: string): string {
   return withDots
 }
 
+export function parseMoneyToNumber(value: string): number {
+  const trimmed = (value ?? '').trim()
+  if (!trimmed) return 0
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.')
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : 0
+}
+
+export function formatMoneyFromNumber(amount: number): string {
+  if (!Number.isFinite(amount) || amount <= 0) return '0'
+  const rounded = Math.round(amount * 100) / 100
+  const [intPart, decPart] = rounded.toFixed(2).split('.')
+  const formattedInt = formatMoneyInput(intPart)
+  if (decPart === '00') return formattedInt
+  return `${formattedInt},${decPart}`
+}
+
 export function moneyDisplayWithCurrency(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) return ''

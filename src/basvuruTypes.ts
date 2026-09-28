@@ -7,6 +7,7 @@ export type WizardStep =
   | 'beyanlar'
   | 'ozet'
   | 'sonuc'
+  | 'profil'
 
 export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
   { id: 'kvkk', label: 'KVKK Onayı' },
@@ -47,7 +48,11 @@ export type BasvuruData = {
   anneMeslegi: string
   anneAylikGelir: string
   anneBabaBirlikte: string
+  /** Çoklu seçim: Anne;Baba;Eş */
+  birlikteYasadigiKisiler: string
   esAylikGelir: string
+  /** Seçilen kişilerin gelir toplamı (otomatik) */
+  haneGeliri: string
   kardesIlkokul: string
   kardesYuksek: string
   oturdugunuzEv: string
@@ -59,8 +64,11 @@ export type BasvuruData = {
   ozelDurum: string
   // Eğitim
   universite: string
+  universiteAdi: string
   fakulte: string
+  fakulteAdi: string
   bolum: string
+  bolumAdi: string
   kayitYili: string
   sinif: string
   bitirmeYili: string
@@ -104,7 +112,9 @@ export const emptyBasvuru = (): BasvuruData => ({
   anneMeslegi: '',
   anneAylikGelir: '',
   anneBabaBirlikte: '',
+  birlikteYasadigiKisiler: '',
   esAylikGelir: '',
+  haneGeliri: '',
   kardesIlkokul: '0',
   kardesYuksek: '0',
   oturdugunuzEv: '',
@@ -115,8 +125,11 @@ export const emptyBasvuru = (): BasvuruData => ({
   ozelDurumTipi: '',
   ozelDurum: '',
   universite: '',
+  universiteAdi: '',
   fakulte: '',
+  fakulteAdi: '',
   bolum: '',
+  bolumAdi: '',
   kayitYili: '',
   sinif: '',
   bitirmeYili: '',
@@ -148,6 +161,8 @@ export const EVET_HAYIR = ['Evet', 'Hayır'] as const
 export const SAG_MI = ['Evet', 'Hayır'] as const
 
 export const MEDENI_DURUM = ['Bekar', 'Evli'] as const
+
+export const HANE_KISI_SAYILARI = Array.from({ length: 16 }, (_, i) => String(i))
 
 export const EV_DURUMU = [
   'Kendimize ait',
@@ -194,7 +209,15 @@ export const SINIFLAR = [
 ] as const
 
 const yearNow = new Date().getFullYear()
-export const YILLAR = Array.from({ length: 15 }, (_, i) => String(yearNow + 2 - i))
+function yearRange(from: number, to: number) {
+  const start = Math.min(from, to)
+  const end = Math.max(from, to)
+  return Array.from({ length: end - start + 1 }, (_, i) => String(end - i))
+}
+/** Üniversiteye kayıt: son 8 yıl */
+export const KAYIT_YILLARI = yearRange(yearNow - 8, yearNow)
+/** Normal bitirme: bu yıl ve 10 yıl sonrası */
+export const BITIRME_YILLARI = yearRange(yearNow, yearNow + 10)
 export const ARAC_YILLARI = Array.from({ length: 45 }, (_, i) => String(yearNow - i))
 
 export const KARDEŞ_SAYILARI = Array.from({ length: 11 }, (_, i) => String(i))

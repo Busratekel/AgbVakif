@@ -13,6 +13,15 @@ export const SITE = {
     'Eğitim, sağlık, spor ve toplumsal dayanışma ile Anadolu’da umuda ortak oluyoruz.',
 }
 
+/** Ana sayfa — hero altı iyi niyet beyanı */
+export const HERO_BELOW_MESSAGE = {
+  title: 'İyi Niyet Beyanı',
+  paragraphs: [
+    'Biz Vakfedenler; iyiliğin çoğaldığı, dayanışmanın güçlendiği ve kimsenin kendini yalnız hissetmediği bir toplum hayaliyle bu Vakfı kuruyoruz. Bu Vakıf, insanın insana omuz verdiği, umudun paylaşıldıkça çoğaldığı, merhametin ve sorumluluğun yol gösterici olduğu bir iyilik kapısıdır. Vakfa emanet edilen her değerin bu anlayışla yaşatılması ve her adımın vicdan, hakkaniyet ve iyi niyetle atılması en içten dileğimizdir.',
+    'Bu Vakıf, Vakıf Resmi Senedinin altında unvanı ve adresi yazılı tüzel kişi tarafından Türk Medeni Kanunu hükümlerine göre kurulmuştur.',
+  ],
+} as const
+
 export const CONTACT = {
   email: 'info@anadolugucbirligi.com.tr',
   phone: '+90 212 438 25 00',
@@ -68,7 +77,7 @@ export const KURUMSAL_NAV = [
 ] as const
 
 export const BASVURU_NAV = [
-  { to: '/basvuru/istatistikler', label: 'İstatistikler', end: false },
+  //{ to: '/basvuru/istatistikler', label: 'İstatistikler', end: false },
   { to: '/basvuru', label: 'Genel bilgilendirme', end: true },
   { to: '/basvuru/sss', label: 'Burslar hakkında SSS', end: false },
   { to: '/basvuru/belgeler', label: 'Burs için gerekli belgeler', end: false },
@@ -138,7 +147,7 @@ export const KURUMSAL_YONETIM: {
     title: 'Yönetim Kurulu Başkan Vekili',
   },
   {
-    name: 'Muharrem YERE',
+    name: 'Muharrem YERER',
     title: 'Yönetim Kurulu Üyesi',
   },
   {
@@ -150,7 +159,7 @@ export const KURUMSAL_YONETIM: {
     title: 'Yönetim Kurulu Üyesi',
   },
   {
-    name: 'Doğanur Atabay IŞIK',
+    name: 'Doğanur ATABAY IŞIK',
     title: 'Yönetim Kurulu Üyesi',
   },
   {
@@ -179,7 +188,6 @@ export type BelgeMadde = {
 
 /** Değerlendirme sonrası istenecek belgeler */
 export const BASVURU_BELGELER: BelgeMadde[] = [
-  { text: 'Burs başvuru formu' },
   { text: 'Onaylı öğrenci belgesi' },
   { text: 'Vesikalık fotoğraf (1 adet)' },
   { text: 'e-Devlet’ten alınacak vukuatlı nüfus kayıt örneği' },

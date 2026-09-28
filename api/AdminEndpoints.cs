@@ -20,6 +20,7 @@ public static class AdminEndpoints
         "BasvuruFormBaslikNot",
         "BasvuruBaslangic",
         "BasvuruBitis",
+        "MinDogumTarihi",
     ];
 
     public static void MapAdminEndpoints(this WebApplication app)
@@ -32,6 +33,7 @@ public static class AdminEndpoints
         group.MapGet("/basvurular", HandleList);
         group.MapGet("/basvurular/export", HandleExportExcel);
         group.MapGet("/basvurular/{id:guid}", HandleDetail);
+        group.MapGet("/basvurular/{id:guid}/belgeler/{belgeId:guid}", HandleDownloadBelge);
         group.MapPatch("/basvurular/{id:guid}/durum", HandleDurum);
         group.MapGet("/config", HandleGetConfig);
         group.MapPut("/config", HandlePutConfig);
@@ -198,7 +200,7 @@ public static class AdminEndpoints
             "Basvuru No", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
             "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu", "Kategori",
             "Baba Adi", "Baba Sag Mi", "Baba Meslegi", "Baba Aylik Gelir",
-            "Anne Adi", "Anne Sag Mi", "Anne Meslegi", "Anne Aylik Gelir", "Anne Baba Birlikte", "Es Aylik Gelir",
+            "Anne Adi", "Anne Sag Mi", "Anne Meslegi", "Anne Aylik Gelir", "Anne Baba Birlikte", "Birlikte Yasadigi Kisi Sayisi", "Es Aylik Gelir", "Hane Geliri",
             "Kardes Ilkokul-Orta-Lise", "Kardes Yuksekogretim", "Oturdugunuz Ev", "Ev Kira Bedeli",
             "Arac Var Mi", "Arac Marka Model", "Arac Yili", "Ozel Durum Tipi", "Ozel Durum",
             "Universite", "Fakulte", "Bolum", "Kayit Yili", "Sinif", "Bitirme Yili", "Hazirlik",
@@ -227,7 +229,7 @@ public static class AdminEndpoints
                 e.DogumTarihi?.ToString("dd.MM.yyyy"), e.DogumYeri, e.MedeniDurum,
                 e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu, e.Kategori,
                 e.BabaAdi, e.BabaSagMi, e.BabaMeslegi, e.BabaAylikGelir,
-                e.AnneAdi, e.AnneSagMi, e.AnneMeslegi, e.AnneAylikGelir, e.AnneBabaBirlikte, e.EsAylikGelir,
+                e.AnneAdi, e.AnneSagMi, e.AnneMeslegi, e.AnneAylikGelir, e.AnneBabaBirlikte, e.BirlikteYasadigiKisiler, e.EsAylikGelir, e.HaneGeliri,
                 e.KardesIlkokul, e.KardesYuksek, e.OturdugunuzEv, e.EvKiraBedeli,
                 e.AracVarMi, e.AracMarkaModel, e.AracYili, e.OzelDurumTipi, e.OzelDurum,
                 e.Universite, e.Fakulte, e.Bolum, e.KayitYili, e.Sinif, e.BitirmeYili, e.Hazirlik,
@@ -302,7 +304,36 @@ public static class AdminEndpoints
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         }
 
-        return Results.Ok(new { success = true, data = ToAdminDto(e) });
+        var belgeler = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
+            .Where(x => x.BasvuruId == e.Id)
+            .OrderBy(x => x.YuklemeTarihi)
+            .Select(x => new { x.Id, x.BelgeKod, x.DosyaAdi, x.YuklemeTarihi })
+            .ToListAsync(ct);
+
+        return Results.Ok(new { success = true, data = ToAdminDto(e), belgeler });
+    }
+
+    private static async Task<IResult> HandleDownloadBelge(
+        Guid id,
+        Guid belgeId,
+        BoytasWhContext db,
+        IWebHostEnvironment env,
+        CancellationToken ct)
+    {
+        var row = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == belgeId && x.BasvuruId == id, ct);
+        if (row is null)
+        {
+            return Results.NotFound(new { success = false, message = "Belge bulunamadı." });
+        }
+
+        var path = Path.Combine(env.ContentRootPath, "App_Data", "belgeler", row.SaklananAd);
+        if (!System.IO.File.Exists(path))
+        {
+            return Results.NotFound(new { success = false, message = "Dosya bulunamadı." });
+        }
+
+        return Results.File(path, "application/octet-stream", row.DosyaAdi);
     }
 
     private static async Task<IResult> HandleDurum(
@@ -638,6 +669,15 @@ public static class AdminEndpoints
                 }
             }
 
+            if (key == "MinDogumTarihi" && !string.IsNullOrWhiteSpace(value) && !DateOnly.TryParse(value.Trim(), out _))
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "En erken doğum tarihi geçerli bir gün olmalıdır (örn. 2004-01-01).",
+                });
+            }
+
             var row = await db.AGB_Vakif_Config.FirstOrDefaultAsync(x => x.ConfigKey == key, ct);
             if (row is null)
             {
@@ -685,7 +725,9 @@ public static class AdminEndpoints
         e.AnneMeslegi,
         e.AnneAylikGelir,
         e.AnneBabaBirlikte,
+        e.BirlikteYasadigiKisiler,
         e.EsAylikGelir,
+        e.HaneGeliri,
         e.KardesIlkokul,
         e.KardesYuksek,
         e.OturdugunuzEv,

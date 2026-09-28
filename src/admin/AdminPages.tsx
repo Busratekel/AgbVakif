@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import {
   adminDownloadBasvuruExcel,
+  adminDownloadBelge,
   adminFetch,
   adminLogin,
   adminLogout,
@@ -305,6 +306,7 @@ export function AdminBasvuruDetail() {
   const { id = '' } = useParams()
   const toast = useAdminToast()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
+  const [belgeler, setBelgeler] = useState<{ id: string; belgeKod: string; dosyaAdi: string; yuklemeTarihi: string }[]>([])
   const [durum, setDurum] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -318,6 +320,7 @@ export function AdminBasvuruDetail() {
         const json = await adminFetch(`/basvurular/${id}`)
         if (!cancelled) {
           setData(json.data)
+          setBelgeler(json.belgeler ?? [])
           setDurum(String(json.data?.durum ?? ''))
         }
       } catch (err) {
@@ -379,14 +382,12 @@ export function AdminBasvuruDetail() {
     </div>
   )
 
-  const lockedFinal =
-    durum === 'Onaylandi' || durum === 'Reddedildi'
-    || String(data.durum) === 'Onaylandi'
-    || String(data.durum) === 'Reddedildi'
+  const savedDurum = String(data.durum || '')
+  const lockedFinal = savedDurum === 'Onaylandi' || savedDurum === 'Reddedildi'
 
   const durumOptions = (() => {
     const all = ['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'] as const
-    const current = String(data.durum || '')
+    const current = savedDurum
     if (current === 'Onaylandi') return ['Onaylandi'] as const
     if (current === 'Reddedildi') return ['Reddedildi'] as const
     return all
@@ -399,7 +400,7 @@ export function AdminBasvuruDetail() {
           <Link to="/admin" className="muted">← Başvurular</Link>
           <h1>{s('ad')} {s('soyad')}</h1>
         </div>
-        <span className={`admin-pill durum-${String(data.durum || '').toLowerCase()}`}>{s('durum')}</span>
+        <span className={`admin-pill durum-${savedDurum.toLowerCase()}`}>{s('durum')}</span>
       </div>
 
       {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
@@ -420,18 +421,49 @@ export function AdminBasvuruDetail() {
         <button
           type="button"
           className="btn"
-          disabled={saving || lockedFinal || durum === String(data.durum)}
+          disabled={saving || lockedFinal || durum === savedDurum}
           onClick={() => void saveDurum()}
         >
           {saving ? 'Kaydediliyor…' : lockedFinal ? 'Karar kilitli' : 'Durumu kaydet'}
         </button>
         <p className="field-hint" style={{ flexBasis: '100%', margin: 0 }}>
           {lockedFinal
-            ? String(data.durum) === 'Onaylandi'
+            ? savedDurum === 'Onaylandi'
               ? 'Bu başvuru onaylanmış; reddedilemez ve durum değiştirilemez.'
               : 'Bu başvuru reddedilmiş; onaylanamaz ve durum değiştirilemez.'
             : <>Durumu <strong>Onaylandi</strong> veya <strong>Reddedildi</strong> yaptığınızda başvuru sahibine e-posta ve SMS gider; karar kalıcı kilitlenir.</>}
         </p>
+      </div>
+
+      <div className="admin-detail-panel">
+        <section className="admin-detail-block">
+          <h3>Yüklenen belgeler</h3>
+          {belgeler.length === 0 ? (
+            <p className="field-hint">Henüz belge yüklenmedi.</p>
+          ) : (
+            <ul className="admin-belge-list">
+              {belgeler.map((b) => (
+                <li key={b.id}>
+                  <span>{b.belgeKod}</span>
+                  <strong>{b.dosyaAdi}</strong>
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() => {
+                      void adminDownloadBelge(id, b.id, b.dosyaAdi).catch((err) => {
+                        const msg = err instanceof Error ? err.message : 'Belge indirilemedi'
+                        setError(msg)
+                        toast.error(msg)
+                      })
+                    }}
+                  >
+                    İndir
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       <div className="admin-detail-panel">
@@ -469,9 +501,11 @@ export function AdminBasvuruDetail() {
               <Row label="Anne aylık net geliri" value={`${s('anneAylikGelir')} ₺`} />
             ) : null}
             <Row label="Anne-baba birlikte mi?" value={s('anneBabaBirlikte')} />
+            <Row label="Birlikte yaşadığı kişi sayısı" value={s('birlikteYasadigiKisiler')} />
             {data.medeniDurum === 'Evli' || data.esAylikGelir ? (
               <Row label="Eş aylık net geliri" value={`${s('esAylikGelir')} ₺`} />
             ) : null}
+            <Row label="Hane geliri" value={data.haneGeliri ? `${s('haneGeliri')} ₺` : '—'} />
             <Row label="İlk/orta/lisede okuyan kardeş" value={s('kardesIlkokul')} />
             <Row label="Yükseköğretimde okuyan kardeş" value={s('kardesYuksek')} />
             <Row label="Oturduğunuz ev" value={s('oturdugunuzEv')} />
@@ -677,6 +711,17 @@ export function AdminConfig() {
                 fieldKey="BasvuruBitis"
                 hint="örn. 2026-09-30T17:00:00"
               />
+              <label>
+                <span>En erken doğum tarihi</span>
+                <input
+                  type="date"
+                  value={(items.MinDogumTarihi ?? '').slice(0, 10)}
+                  onChange={(e) => setField('MinDogumTarihi', e.target.value)}
+                />
+                <small className="field-hint">
+                  25 yaş kuralı her zaman geçerlidir. Bu tarih doldurulursa, bu tarihten önce doğanlar da başvuru yapamaz.
+                </small>
+              </label>
             </div>
           </section>
 
@@ -884,7 +929,7 @@ const emptyHeroForm = (): HeroFormState => ({
 
 const HERO_LINK_OPTIONS = [
   { value: '/basvuru/form', label: 'Burs başvurusu (form)' },
-  { value: '/basvuru/istatistikler', label: 'İstatistikler' },
+  //{ value: '/basvuru/istatistikler', label: 'İstatistikler' },
   { value: '/basvuru', label: 'Başvuru genel bilgilendirme' },
   { value: '/basvuru/sss', label: 'Burs SSS' },
   { value: '/basvuru/belgeler', label: 'Gerekli belgeler' },
@@ -1224,7 +1269,7 @@ export function AdminHero() {
             {saving ? 'Kaydediliyor…' : editingId ? 'Güncelle' : 'Slayt ekle'}
           </button>
           {editingId ? (
-            <button type="button" className="btn btn-ghost" onClick={resetForm}>
+            <button type="button" className="btn btn-ghost-dark" onClick={resetForm}>
               Vazgeç
             </button>
           ) : null}

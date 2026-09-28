@@ -28,13 +28,6 @@ export function KurumsalBaskan() {
           {KURUMSAL_BASKAN.paragraphs.map((p) => (
             <p key={p.slice(0, 48)}>{p}</p>
           ))}
-          <p className="kurumsal-sign">
-            <strong>{KURUMSAL_BASKAN.name}</strong>
-            <br />
-            {KURUMSAL_BASKAN.org}
-            <br />
-            {KURUMSAL_BASKAN.title}
-          </p>
         </div>
       </div>
     </article>

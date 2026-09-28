@@ -45,6 +45,7 @@ api/appsettings.*.local.json
 
 # Uploaded media
 api/Uploads/
+api/App_Data/
 
 # Editor / OS
 .vscode/*

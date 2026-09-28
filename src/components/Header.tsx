@@ -145,14 +145,6 @@ export function Header() {
             </div>
           </div>
 
-          <Link
-            to="/iletisim"
-            className={location.pathname === '/iletisim' ? 'is-active' : undefined}
-            onClick={closeAll}
-          >
-            İletişim
-          </Link>
-
           <div
             className={`nav-drop${dropOpen === 'basvuru' ? ' is-open' : ''}`}
             ref={basvuruRef}
@@ -183,6 +175,21 @@ export function Header() {
               ))}
             </div>
           </div>
+
+          <Link
+            to="/basvuru/form?giris=1"
+            className={location.pathname === '/basvuru/form' && location.search.includes('giris=1') ? 'is-active' : undefined}
+            onClick={closeAll}
+          >
+            Başvurum
+          </Link>
+          <Link
+            to="/iletisim"
+            className={location.pathname === '/iletisim' ? 'is-active' : undefined}
+            onClick={closeAll}
+          >
+            İletişim
+          </Link>
         </nav>
       </div>
     </header>

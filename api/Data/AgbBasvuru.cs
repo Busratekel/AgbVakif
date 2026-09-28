@@ -83,8 +83,14 @@ public sealed class AgbBasvuru
     [MaxLength(10)]
     public string? AnneBabaBirlikte { get; set; }
 
+    [MaxLength(80)]
+    public string? BirlikteYasadigiKisiler { get; set; }
+
     [MaxLength(40)]
     public string? EsAylikGelir { get; set; }
+
+    [MaxLength(40)]
+    public string? HaneGeliri { get; set; }
 
     [MaxLength(5)]
     public string? KardesIlkokul { get; set; }

@@ -94,15 +94,10 @@ public static class ApplicationMailComposer
     public static string BuildApprovalHtml(string? adSoyad, string? basvuruNo)
     {
         var ad = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim());
-        var no = (basvuruNo ?? "").Trim();
-        var noPart = string.IsNullOrEmpty(no)
-            ? "Başvurunuz"
-            : $"<strong>{WebUtility.HtmlEncode(no)}</strong> numaralı başvurunuz";
         return $"""
             <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.55">
               <p>Sayın {ad},</p>
-              <p>{noPart} <strong>Anadolu Güçbirliği Vakfı</strong> tarafından <strong>onaylanmıştır</strong>.</p>
-              <p>En kısa sürede sizinle iletişime geçilecektir.</p>
+              <p>Başvurunuz onaylanmıştır. Sizden istenen belgeleri site üzerindeki <strong>Başvurum</strong> bölümündeki belge yükleme alanından ekleyiniz.</p>
               <p>Saygılarımızla,<br/>Anadolu Güçbirliği Vakfı</p>
             </div>
             """;
@@ -111,21 +106,15 @@ public static class ApplicationMailComposer
     public static string BuildApprovalText(string? adSoyad, string? basvuruNo)
     {
         var ad = string.IsNullOrWhiteSpace(adSoyad) ? "başvuru sahibi" : adSoyad.Trim();
-        var no = (basvuruNo ?? "").Trim();
-        var subject = string.IsNullOrEmpty(no) ? "Başvurunuz" : $"{no} numaralı başvurunuz";
         return
             $"Sayın {ad},\n\n" +
-            $"{subject} Anadolu Güçbirliği Vakfı tarafından onaylanmıştır.\n" +
-            "En kısa sürede sizinle iletişime geçilecektir.\n\n" +
+            "Başvurunuz onaylanmıştır. Sizden istenen belgeleri site üzerindeki Başvurum bölümündeki belge yükleme alanından ekleyiniz.\n\n" +
             "Saygılarımızla,\nAnadolu Güçbirliği Vakfı";
     }
 
     public static string ApprovalSms(string? basvuruNo)
     {
-        var no = (basvuruNo ?? "").Trim();
-        return string.IsNullOrEmpty(no)
-            ? "Anadolu Gucbirligi Vakfi: Basvurunuz onaylanmistir. En kisa surede sizinle iletisime gecilecektir."
-            : $"Anadolu Gucbirligi Vakfi: {no} nolu basvurunuz onaylanmistir.";
+        return "Anadolu Güçbirliği Vakfı: Başvurunuz onaylanmıştır. İstenen belgeleri Başvurum bölümündeki belge yükleme alanından ekleyiniz.";
     }
 
     public static string BuildRejectionHtml(string? adSoyad, string? basvuruNo)

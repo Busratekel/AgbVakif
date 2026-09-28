@@ -13,9 +13,7 @@ export function KurumsalYonetim() {
           <li key={m.name} className="kurumsal-board-card">
             {m.photo ? (
               <img className="kurumsal-person-photo" src={m.photo} alt={m.name} />
-            ) : (
-              <div className="kurumsal-person-photo" aria-hidden="true" />
-            )}
+            ) : null}
             <strong>{m.name}</strong>
             <span>{m.title}</span>
           </li>

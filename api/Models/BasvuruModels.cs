@@ -60,8 +60,8 @@ public sealed class BasvuruKaydetRequest
     [Required, MaxLength(120)]
     public string Statu { get; set; } = "";
 
-    [Required, MaxLength(120)]
-    public string Kategori { get; set; } = "";
+    [MaxLength(120)]
+    public string? Kategori { get; set; }
 
     [MaxLength(80)]
     public string? BabaAdi { get; set; }
@@ -90,8 +90,14 @@ public sealed class BasvuruKaydetRequest
     [MaxLength(10)]
     public string? AnneBabaBirlikte { get; set; }
 
+    [MaxLength(80)]
+    public string? BirlikteYasadigiKisiler { get; set; }
+
     [MaxLength(40)]
     public string? EsAylikGelir { get; set; }
+
+    [MaxLength(40)]
+    public string? HaneGeliri { get; set; }
 
     [MaxLength(5)]
     public string? KardesIlkokul { get; set; }
@@ -196,7 +202,9 @@ public sealed class BasvuruDto
     public string? AnneMeslegi { get; set; }
     public string? AnneAylikGelir { get; set; }
     public string? AnneBabaBirlikte { get; set; }
+    public string? BirlikteYasadigiKisiler { get; set; }
     public string? EsAylikGelir { get; set; }
+    public string? HaneGeliri { get; set; }
     public string? KardesIlkokul { get; set; }
     public string? KardesYuksek { get; set; }
     public string? OturdugunuzEv { get; set; }

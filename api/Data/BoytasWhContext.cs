@@ -6,6 +6,7 @@ public sealed class BoytasWhContext(DbContextOptions<BoytasWhContext> options) :
 {
     public DbSet<PbConfig> PB_Config => Set<PbConfig>();
     public DbSet<AgbBasvuru> AGB_Vakif_Basvuru => Set<AgbBasvuru>();
+    public DbSet<AgbBasvuruBelge> AGB_Vakif_BasvuruBelge => Set<AgbBasvuruBelge>();
     public DbSet<AgbVakifConfig> AGB_Vakif_Config => Set<AgbVakifConfig>();
     public DbSet<AgbPanelKullanici> AGB_Vakif_PanelKullanici => Set<AgbPanelKullanici>();
     public DbSet<AgbHeroSlide> AGB_Vakif_HeroSlide => Set<AgbHeroSlide>();
@@ -34,6 +35,13 @@ public sealed class BoytasWhContext(DbContextOptions<BoytasWhContext> options) :
             entity.HasIndex(x => x.TcKimlikNo).IsUnique();
             entity.Property(x => x.AcikAdres).HasColumnType("nvarchar(max)");
             entity.Property(x => x.OzelDurum).HasColumnType("nvarchar(max)");
+        });
+
+        modelBuilder.Entity<AgbBasvuruBelge>(entity =>
+        {
+            entity.ToTable("AGB_Vakif_BasvuruBelge");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.BasvuruId);
         });
 
         modelBuilder.Entity<AgbPanelKullanici>(entity =>

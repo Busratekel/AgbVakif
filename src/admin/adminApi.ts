@@ -154,6 +154,38 @@ export async function adminDownloadBasvuruExcel(params: { q?: string; durum?: st
   URL.revokeObjectURL(url)
 }
 
+export async function adminDownloadBelge(basvuruId: string, belgeId: string, fileName: string) {
+  let response: Response
+  try {
+    response = await fetch(`${FORM_API_URL}/admin/basvurular/${basvuruId}/belgeler/${belgeId}`, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
+    })
+  } catch {
+    throw new Error('Sunucuya bağlanılamadı. API çalışıyor mu kontrol edin.')
+  }
+
+  if (response.status === 401) {
+    redirectToAdminLogin()
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yapmanız gerekiyor.')
+  }
+  if (!response.ok) {
+    const raw = await response.text()
+    let json: any = {}
+    try { json = JSON.parse(raw) } catch { /* ignore */ }
+    throw new Error(formatAdminError(response.status, json, raw))
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName || 'belge'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function redirectToAdminLogin() {
   clearAdminSession()
   if (typeof window === 'undefined') return
@@ -249,4 +281,5 @@ export const CONFIG_LABELS: Record<string, string> = {
   BasvuruFormBaslikNot: 'Form açıklama notu',
   BasvuruBaslangic: 'Başlangıç tarihi',
   BasvuruBitis: 'Bitiş tarihi',
+  MinDogumTarihi: 'En erken doğum tarihi',
 }

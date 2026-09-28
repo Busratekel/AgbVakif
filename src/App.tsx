@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
+import { HeroBelowMessage } from './components/HeroBelowMessage'
 import { Footer } from './components/Footer'
 import { AnnouncementPopup } from './components/AnnouncementPopup'
 import { KvkkProvider } from './components/KvkkModal'
@@ -12,7 +13,7 @@ import { BasvuruHub } from './pages/BasvuruHub'
 import { BasvuruSss } from './pages/BasvuruSss'
 import { BasvuruForm } from './pages/BasvuruForm'
 import { BasvuruBelgeler } from './pages/BasvuruBelgeler'
-import { BasvuruIstatistikler } from './pages/BasvuruIstatistikler'
+//import { BasvuruIstatistikler } from './pages/BasvuruIstatistikler'
 import { KurumsalHakkinda } from './pages/KurumsalHakkinda'
 import { KurumsalTarihce } from './pages/KurumsalTarihce'
 import { KurumsalBaskan } from './pages/KurumsalBaskan'
@@ -53,6 +54,7 @@ function HomePage() {
   return (
     <>
       <Hero />
+      <HeroBelowMessage />
     </>
   )
 }
@@ -80,7 +82,7 @@ export default function App() {
           </Route>
           <Route path="/basvuru" element={<BasvuruLayout />}>
             <Route index element={<BasvuruHub />} />
-            <Route path="istatistikler" element={<BasvuruIstatistikler />} />
+            {/*<Route path="istatistikler" element={<BasvuruIstatistikler />} />*/}
             <Route path="sss" element={<BasvuruSss />} />
             <Route path="belgeler" element={<BasvuruBelgeler />} />
           </Route>

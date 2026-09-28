@@ -29,7 +29,9 @@ BEGIN
         AnneMeslegi     NVARCHAR(80)     NULL,
         AnneAylikGelir  NVARCHAR(40)     NULL,
         AnneBabaBirlikte NVARCHAR(10)    NULL,
-        EsAylikGelir    NVARCHAR(40)     NULL,
+        BirlikteYasadigiKisiler NVARCHAR(80) NULL,
+        EsAylikGelir     NVARCHAR(40)     NULL,
+        HaneGeliri       NVARCHAR(40)     NULL,
         KardesIlkokul   NVARCHAR(5)      NULL,
         KardesYuksek    NVARCHAR(5)      NULL,
         OturdugunuzEv   NVARCHAR(60)     NULL,
@@ -93,6 +95,10 @@ BEGIN
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD AnneAylikGelir NVARCHAR(40) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'AnneBabaBirlikte') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD AnneBabaBirlikte NVARCHAR(10) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BirlikteYasadigiKisiler') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BirlikteYasadigiKisiler NVARCHAR(80) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'HaneGeliri') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD HaneGeliri NVARCHAR(40) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'KardesIlkokul') IS NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru ADD KardesIlkokul NVARCHAR(5) NULL;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'KardesYuksek') IS NULL
@@ -161,5 +167,20 @@ IF OBJECT_ID(N'dbo.AGB_Vakif_Basvuru', N'U') IS NOT NULL
    )
 BEGIN
     CREATE UNIQUE INDEX IX_AGB_Vakif_Basvuru_No ON dbo.AGB_Vakif_Basvuru(BasvuruNo) WHERE BasvuruNo IS NOT NULL;
+END
+GO
+
+IF OBJECT_ID(N'dbo.AGB_Vakif_BasvuruBelge', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AGB_Vakif_BasvuruBelge
+    (
+        Id            UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_AGB_Vakif_BasvuruBelge PRIMARY KEY,
+        BasvuruId     UNIQUEIDENTIFIER NOT NULL,
+        BelgeKod      NVARCHAR(400)    NOT NULL,
+        DosyaAdi      NVARCHAR(260)    NOT NULL,
+        SaklananAd    NVARCHAR(80)     NOT NULL,
+        YuklemeTarihi DATETIME2        NOT NULL CONSTRAINT DF_AGB_BelgeCreated DEFAULT(SYSUTCDATETIME())
+    );
+    CREATE INDEX IX_AGB_Vakif_BasvuruBelge_Basvuru ON dbo.AGB_Vakif_BasvuruBelge(BasvuruId);
 END
 GO

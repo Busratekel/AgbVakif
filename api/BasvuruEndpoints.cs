@@ -20,6 +20,9 @@ public static class BasvuruEndpoints
         group.MapGet("/me", HandleGetMe);
         group.MapPut("/me", HandleSaveMe);
         group.MapPost("/me/gonder", HandleSubmitMe);
+        group.MapGet("/me/belgeler", HandleListBelgeler);
+        group.MapPost("/me/belgeler", HandleUploadBelge).DisableAntiforgery();
+        group.MapDelete("/me/belgeler/{belgeId:guid}", HandleDeleteBelge);
     }
 
     private static async Task<IResult> HandleDonem(BoytasWhContext db, CancellationToken ct)
@@ -32,6 +35,7 @@ public static class BasvuruEndpoints
             "BasvuruFormBaslikNot",
             "BasvuruBaslangic",
             "BasvuruBitis",
+            "MinDogumTarihi",
             "PopupAktif",
             "PopupBaslik",
             "PopupMetin",
@@ -67,6 +71,11 @@ public static class BasvuruEndpoints
 
         var now = DateTime.Now;
         var acik = now >= baslangic && now <= bitis;
+        var minDogumRaw = (Get("MinDogumTarihi") ?? "").Trim();
+        string? minDogumTarihi = DateOnly.TryParse(minDogumRaw, out var minDogum)
+            ? minDogum.ToString("yyyy-MM-dd")
+            : null;
+        var yasSiniri = EarliestBirthForUnder25(DateOnly.FromDateTime(DateTime.Now));
 
         return Results.Ok(new
         {
@@ -79,6 +88,8 @@ public static class BasvuruEndpoints
             bitis = bitis.ToString("o"),
             donemMetni,
             acik,
+            minDogumTarihi,
+            yasSiniri = yasSiniri.ToString("yyyy-MM-dd"),
             popupAktif,
             popupBaslik,
             popupMetin,
@@ -164,6 +175,11 @@ public static class BasvuruEndpoints
         }
 
         var existing = await db.AGB_Vakif_Basvuru.FirstOrDefaultAsync(x => x.TcKimlikNo == tc, ct);
+        if (existing is null && !await IsDonemAcik(db, ct))
+        {
+            return Results.BadRequest(new { success = false, message = "Başvuru dönemi kapalı." });
+        }
+
         if (existing is null)
         {
             existing = new AgbBasvuru
@@ -314,6 +330,12 @@ public static class BasvuruEndpoints
             return Results.BadRequest(new { success = false, message = "Ad ve soyad yalnızca harf içermelidir." });
         }
 
+        var birthError = await RejectIfBornTooEarly(db, request.DogumTarihi, ct);
+        if (birthError is not null)
+        {
+            return Results.BadRequest(new { success = false, message = birthError });
+        }
+
         if (!IsOptionalName(request.BabaAdi) || !IsOptionalName(request.AnneAdi)
             || !IsOptionalName(request.BabaMeslegi) || !IsOptionalName(request.AnneMeslegi))
         {
@@ -330,6 +352,16 @@ public static class BasvuruEndpoints
         if (entity is null)
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+        }
+
+        if (IsKararKilitli(entity.Durum))
+        {
+            return Results.BadRequest(new { success = false, message = "Onaylanan veya reddedilen başvuru güncellenemez." });
+        }
+
+        if (!await IsDonemAcik(db, ct))
+        {
+            return Results.BadRequest(new { success = false, message = "Başvuru dönemi kapalı." });
         }
 
         Apply(entity, request);
@@ -364,12 +396,28 @@ public static class BasvuruEndpoints
             return Results.BadRequest(new { success = false, message = "Tüm koşul beyanları zorunludur." });
         }
 
+        var birthError = await RejectIfBornTooEarly(db, request.DogumTarihi, ct);
+        if (birthError is not null)
+        {
+            return Results.BadRequest(new { success = false, message = birthError });
+        }
+
         var entity = await db.AGB_Vakif_Basvuru
             .FirstOrDefaultAsync(x => x.TcKimlikNo == access.TcKimlikNo, ct);
 
         if (entity is null)
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+        }
+
+        if (IsKararKilitli(entity.Durum))
+        {
+            return Results.BadRequest(new { success = false, message = "Onaylanan veya reddedilen başvuru güncellenemez." });
+        }
+
+        if (!await IsDonemAcik(db, ct))
+        {
+            return Results.BadRequest(new { success = false, message = "Başvuru dönemi kapalı." });
         }
 
         Apply(entity, request);
@@ -380,9 +428,13 @@ public static class BasvuruEndpoints
 
         // Aynı TC tek kayıt: daha önce gönderilmişse güncelleme
         var isUpdate = string.Equals(entity.Durum, "Gonderildi", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entity.Durum, "Inceleniyor", StringComparison.OrdinalIgnoreCase)
             || entity.SonGonderimTarihi is not null;
 
-        entity.Durum = "Gonderildi";
+        if (!string.Equals(entity.Durum, "Inceleniyor", StringComparison.OrdinalIgnoreCase))
+        {
+            entity.Durum = "Gonderildi";
+        }
         entity.SonGonderimTarihi = DateTime.UtcNow;
         entity.GuncellemeTarihi = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
@@ -430,6 +482,180 @@ public static class BasvuruEndpoints
         return Results.Ok(new { success = true, isUpdate, data = ToDto(entity) });
     }
 
+    private static async Task<IResult> HandleListBelgeler(
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+        var entity = await FindMine(db, access.TcKimlikNo, ct);
+        if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+
+        var items = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
+            .Where(x => x.BasvuruId == entity.Id)
+            .OrderBy(x => x.YuklemeTarihi)
+            .Select(x => new { x.Id, x.BelgeKod, x.DosyaAdi, x.YuklemeTarihi })
+            .ToListAsync(ct);
+        return Results.Ok(new { success = true, items });
+    }
+
+    private static async Task<IResult> HandleUploadBelge(
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        IWebHostEnvironment env,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+        var entity = await FindMine(db, access.TcKimlikNo, ct);
+        if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+        if (!string.Equals(entity.Durum, "Onaylandi", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { success = false, message = "Belge yükleme yalnızca onaylanan başvurular için açıktır." });
+        }
+
+        var form = await http.Request.ReadFormAsync(ct);
+        var kod = (form["belgeKod"].ToString() ?? "").Trim();
+        var file = form.Files.GetFile("dosya");
+        if (string.IsNullOrWhiteSpace(kod) || kod.Length > 400)
+        {
+            return Results.BadRequest(new { success = false, message = "Belge türü geçersiz." });
+        }
+        if (file is null || file.Length == 0)
+        {
+            return Results.BadRequest(new { success = false, message = "Dosya seçin." });
+        }
+        if (file.Length > 8 * 1024 * 1024)
+        {
+            return Results.BadRequest(new { success = false, message = "Dosya en fazla 8 MB olabilir." });
+        }
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
+        {
+            return Results.BadRequest(new { success = false, message = "Yalnızca PDF, JPG veya PNG yükleyebilirsiniz." });
+        }
+
+        var dir = Path.Combine(env.ContentRootPath, "App_Data", "belgeler");
+        Directory.CreateDirectory(dir);
+
+        var previous = await db.AGB_Vakif_BasvuruBelge
+            .Where(x => x.BasvuruId == entity.Id && x.BelgeKod == kod)
+            .ToListAsync(ct);
+        foreach (var old in previous)
+        {
+            var oldPath = Path.Combine(dir, old.SaklananAd);
+            if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+            db.AGB_Vakif_BasvuruBelge.Remove(old);
+        }
+
+        var stored = $"{Guid.NewGuid():N}{ext}";
+        var full = Path.Combine(dir, stored);
+        await using (var stream = System.IO.File.Create(full))
+        {
+            await file.CopyToAsync(stream, ct);
+        }
+
+        var row = new AgbBasvuruBelge
+        {
+            Id = Guid.NewGuid(),
+            BasvuruId = entity.Id,
+            BelgeKod = kod,
+            DosyaAdi = Path.GetFileName(file.FileName),
+            SaklananAd = stored,
+            YuklemeTarihi = DateTime.UtcNow,
+        };
+        db.AGB_Vakif_BasvuruBelge.Add(row);
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new
+        {
+            success = true,
+            item = new { row.Id, row.BelgeKod, row.DosyaAdi, row.YuklemeTarihi },
+        });
+    }
+
+    private static async Task<IResult> HandleDeleteBelge(
+        Guid belgeId,
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        IWebHostEnvironment env,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+        var entity = await FindMine(db, access.TcKimlikNo, ct);
+        if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+        if (!string.Equals(entity.Durum, "Onaylandi", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { success = false, message = "Belge silme yalnızca onaylanan başvurular için açıktır." });
+        }
+
+        var row = await db.AGB_Vakif_BasvuruBelge
+            .FirstOrDefaultAsync(x => x.Id == belgeId && x.BasvuruId == entity.Id, ct);
+        if (row is null) return Results.NotFound(new { success = false, message = "Belge bulunamadı." });
+
+        var path = Path.Combine(env.ContentRootPath, "App_Data", "belgeler", row.SaklananAd);
+        if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+        db.AGB_Vakif_BasvuruBelge.Remove(row);
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new { success = true });
+    }
+
+    private static Task<AgbBasvuru?> FindMine(BoytasWhContext db, string tc, CancellationToken ct) =>
+        db.AGB_Vakif_Basvuru.FirstOrDefaultAsync(x => x.TcKimlikNo == tc, ct);
+
+    private static bool IsKararKilitli(string? durum) =>
+        string.Equals(durum, "Onaylandi", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(durum, "Reddedildi", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task<bool> IsDonemAcik(BoytasWhContext db, CancellationToken ct)
+    {
+        var rows = await db.AGB_Vakif_Config.AsNoTracking()
+            .Where(x => x.ConfigKey == "BasvuruBaslangic" || x.ConfigKey == "BasvuruBitis")
+            .ToListAsync(ct);
+        string? Get(string key) => rows.FirstOrDefault(x => x.ConfigKey == key)?.ConfigValue;
+        _ = DateTime.TryParse(Get("BasvuruBaslangic"), out var baslangic);
+        _ = DateTime.TryParse(Get("BasvuruBitis"), out var bitis);
+        if (baslangic == default) baslangic = new DateTime(2026, 9, 7, 9, 0, 0);
+        if (bitis == default) bitis = new DateTime(2026, 9, 30, 17, 0, 0);
+        var now = DateTime.Now;
+        return now >= baslangic && now <= bitis;
+    }
+
+    private static async Task<string?> RejectIfBornTooEarly(
+        BoytasWhContext db,
+        DateOnly? dogum,
+        CancellationToken ct)
+    {
+        if (dogum is null) return null;
+
+        var yasSiniri = EarliestBirthForUnder25(DateOnly.FromDateTime(DateTime.Now));
+        if (dogum.Value < yasSiniri)
+        {
+            return "Başvuru tarihinde 25 yaşını doldurmuş olanlar başvuru yapamaz.";
+        }
+
+        var raw = await db.AGB_Vakif_Config.AsNoTracking()
+            .Where(x => x.ConfigKey == "MinDogumTarihi")
+            .Select(x => x.ConfigValue)
+            .FirstOrDefaultAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(raw) && DateOnly.TryParse(raw.Trim(), out var min) && dogum.Value < min)
+        {
+            return $"{min:dd.MM.yyyy} tarihinden önce doğanlar başvuru yapamaz.";
+        }
+
+        return null;
+    }
+
+    /// <summary>Başvuru gününde 25 yaşını doldurmamış olmak: 25. yaş günü ve öncesi elenir.</summary>
+    private static DateOnly EarliestBirthForUnder25(DateOnly basvuruGunu) =>
+        basvuruGunu.AddYears(-25).AddDays(1);
+
     private static AccessSession? RequireAccess(HttpContext http, OtpSessionService sessions)
     {
         var header = http.Request.Headers.Authorization.ToString();
@@ -457,7 +683,7 @@ public static class BasvuruEndpoints
         entity.Ilce = request.Ilce.Trim();
         entity.AcikAdres = request.AcikAdres?.Trim();
         entity.Statu = request.Statu.Trim();
-        entity.Kategori = request.Kategori.Trim();
+        entity.Kategori = string.IsNullOrWhiteSpace(request.Kategori) ? null : request.Kategori.Trim();
         entity.BabaAdi = request.BabaAdi?.Trim();
         entity.BabaSagMi = request.BabaSagMi?.Trim();
         entity.BabaMeslegi = request.BabaMeslegi?.Trim();
@@ -467,7 +693,11 @@ public static class BasvuruEndpoints
         entity.AnneMeslegi = request.AnneMeslegi?.Trim();
         entity.AnneAylikGelir = request.AnneSagMi == "Evet" ? request.AnneAylikGelir?.Trim() : null;
         entity.AnneBabaBirlikte = request.AnneBabaBirlikte?.Trim();
+        entity.BirlikteYasadigiKisiler = string.IsNullOrWhiteSpace(request.BirlikteYasadigiKisiler)
+            ? null
+            : request.BirlikteYasadigiKisiler.Trim();
         entity.EsAylikGelir = request.MedeniDurum == "Evli" ? request.EsAylikGelir?.Trim() : null;
+        entity.HaneGeliri = request.HaneGeliri?.Trim();
         entity.KardesIlkokul = request.KardesIlkokul?.Trim();
         entity.KardesYuksek = request.KardesYuksek?.Trim();
         entity.OturdugunuzEv = request.OturdugunuzEv?.Trim();
@@ -527,7 +757,9 @@ public static class BasvuruEndpoints
         AnneMeslegi = e.AnneMeslegi,
         AnneAylikGelir = e.AnneAylikGelir,
         AnneBabaBirlikte = e.AnneBabaBirlikte,
+        BirlikteYasadigiKisiler = e.BirlikteYasadigiKisiler,
         EsAylikGelir = e.EsAylikGelir,
+        HaneGeliri = e.HaneGeliri,
         KardesIlkokul = e.KardesIlkokul,
         KardesYuksek = e.KardesYuksek,
         OturdugunuzEv = e.OturdugunuzEv,
