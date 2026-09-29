@@ -19,7 +19,6 @@ BEGIN
         Ilce            NVARCHAR(60)     NULL,
         AcikAdres       NVARCHAR(MAX)    NULL,
         Statu           NVARCHAR(120)    NULL,
-        Kategori        NVARCHAR(120)    NULL,
         BabaAdi         NVARCHAR(80)     NULL,
         BabaSagMi       NVARCHAR(10)     NULL,
         BabaMeslegi     NVARCHAR(80)     NULL,
@@ -178,9 +177,32 @@ BEGIN
         BasvuruId     UNIQUEIDENTIFIER NOT NULL,
         BelgeKod      NVARCHAR(400)    NOT NULL,
         DosyaAdi      NVARCHAR(260)    NOT NULL,
-        SaklananAd    NVARCHAR(80)     NOT NULL,
+        SaklananAd    NVARCHAR(1000)   NOT NULL,
         YuklemeTarihi DATETIME2        NOT NULL CONSTRAINT DF_AGB_BelgeCreated DEFAULT(SYSUTCDATETIME())
     );
     CREATE INDEX IX_AGB_Vakif_BasvuruBelge_Basvuru ON dbo.AGB_Vakif_BasvuruBelge(BasvuruId);
+END
+GO
+
+IF OBJECT_ID(N'dbo.AGB_Vakif_BasvuruBelge', N'U') IS NOT NULL
+   AND COL_LENGTH('dbo.AGB_Vakif_BasvuruBelge', 'SaklananAd') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.AGB_Vakif_BasvuruBelge ALTER COLUMN SaklananAd NVARCHAR(1000) NOT NULL;
+END
+GO
+
+-- Kullanılmayan eski kolonları kaldır
+IF OBJECT_ID(N'dbo.AGB_Vakif_Basvuru', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'Kategori') IS NOT NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN Kategori;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepTutari') IS NOT NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN TalepTutari;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepOzeti') IS NOT NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN TalepOzeti;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BabaGelirBelgeAdi') IS NOT NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN BabaGelirBelgeAdi;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'DigerAileBilgi') IS NOT NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN DigerAileBilgi;
 END
 GO

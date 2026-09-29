@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:api": "dotnet run --project api/AgbVakif.Api.csproj --launch-profile http",
     "build": "tsc -b && vite build",
+    "build:iis": "npm run build && dotnet publish api/AgbVakif.Api.csproj -c Release -o ./publish",
     "build:api": "dotnet build api/AgbVakif.Api.csproj",
     "preview": "vite preview"
   },

@@ -3,6 +3,8 @@ import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom
 import {
   adminDownloadBasvuruExcel,
   adminDownloadBelge,
+  adminOpenBelge,
+  adminBelgeBlobUrl,
   adminFetch,
   adminLogin,
   adminLogout,
@@ -250,7 +252,6 @@ export function AdminBasvuruList() {
               <th>Ad Soyad</th>
               <th>T.C.</th>
               <th>Üniversite</th>
-              <th>Kategori</th>
               <th>Durum</th>
               <th>Gönderim</th>
               <th></th>
@@ -258,9 +259,9 @@ export function AdminBasvuruList() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8}>Yükleniyor…</td></tr>
+              <tr><td colSpan={7}>Yükleniyor…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={8}>Kayıt bulunamadı.</td></tr>
+              <tr><td colSpan={7}>Kayıt bulunamadı.</td></tr>
             ) : (
               items.map((row) => (
                 <tr key={row.id}>
@@ -268,7 +269,6 @@ export function AdminBasvuruList() {
                   <td>{row.ad} {row.soyad}</td>
                   <td>{row.tcKimlikNo}</td>
                   <td>{row.universite || '—'}</td>
-                  <td>{row.kategori || '—'}</td>
                   <td><span className={`admin-pill durum-${(row.durum || '').toLowerCase()}`}>{row.durum}</span></td>
                   <td>{formatDate(row.sonGonderimTarihi || row.guncellemeTarihi)}</td>
                   <td><Link to={`/admin/basvuru/${row.id}`}>Detay</Link></td>
@@ -302,11 +302,59 @@ export function AdminBasvuruList() {
   )
 }
 
+function isImageName(name: string) {
+  return /\.(jpe?g|png|gif|webp)$/i.test(name)
+}
+
+function AdminBelgeOnizleme({
+  basvuruId,
+  belgeId,
+  dosyaAdi,
+}: {
+  basvuruId: string
+  belgeId: string
+  dosyaAdi: string
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isImageName(dosyaAdi)) return
+    let objectUrl: string | null = null
+    let cancelled = false
+    ;(async () => {
+      try {
+        objectUrl = await adminBelgeBlobUrl(basvuruId, belgeId)
+        if (!cancelled) setUrl(objectUrl)
+        else URL.revokeObjectURL(objectUrl)
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [basvuruId, belgeId, dosyaAdi])
+
+  if (!url) return <div className="admin-belge-thumb is-empty" aria-hidden="true" />
+  return (
+    <a className="belge-thumb-link" href={url} target="_blank" rel="noreferrer">
+      <img className="belge-thumb" src={url} alt={dosyaAdi} />
+    </a>
+  )
+}
+
 export function AdminBasvuruDetail() {
   const { id = '' } = useParams()
   const toast = useAdminToast()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
-  const [belgeler, setBelgeler] = useState<{ id: string; belgeKod: string; dosyaAdi: string; yuklemeTarihi: string }[]>([])
+  const [belgeler, setBelgeler] = useState<{
+    id: string
+    belgeKod: string
+    dosyaAdi: string
+    saklananAd?: string
+    yuklemeTarihi: string
+  }[]>([])
   const [durum, setDurum] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -443,22 +491,43 @@ export function AdminBasvuruDetail() {
           ) : (
             <ul className="admin-belge-list">
               {belgeler.map((b) => (
-                <li key={b.id}>
-                  <span>{b.belgeKod}</span>
-                  <strong>{b.dosyaAdi}</strong>
-                  <button
-                    type="button"
-                    className="linkish"
-                    onClick={() => {
-                      void adminDownloadBelge(id, b.id, b.dosyaAdi).catch((err) => {
-                        const msg = err instanceof Error ? err.message : 'Belge indirilemedi'
-                        setError(msg)
-                        toast.error(msg)
-                      })
-                    }}
-                  >
-                    İndir
-                  </button>
+                <li key={b.id} className="admin-belge-item">
+                  <AdminBelgeOnizleme basvuruId={id} belgeId={b.id} dosyaAdi={b.dosyaAdi} />
+                  <div className="admin-belge-meta">
+                    <span className="admin-belge-kod">{b.belgeKod}</span>
+                    <strong className="admin-belge-name">{b.dosyaAdi}</strong>
+                    {b.saklananAd ? (
+                      <code className="admin-belge-path" title={b.saklananAd}>{b.saklananAd}</code>
+                    ) : null}
+                    <div className="admin-belge-actions">
+                      <button
+                        type="button"
+                        className="btn btn-ghost-dark btn-small"
+                        onClick={() => {
+                          void adminOpenBelge(id, b.id).catch((err) => {
+                            const msg = err instanceof Error ? err.message : 'Belge açılamadı'
+                            setError(msg)
+                            toast.error(msg)
+                          })
+                        }}
+                      >
+                        Görüntüle
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost-dark btn-small"
+                        onClick={() => {
+                          void adminDownloadBelge(id, b.id, b.dosyaAdi).catch((err) => {
+                            const msg = err instanceof Error ? err.message : 'Belge indirilemedi'
+                            setError(msg)
+                            toast.error(msg)
+                          })
+                        }}
+                      >
+                        İndir
+                      </button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>

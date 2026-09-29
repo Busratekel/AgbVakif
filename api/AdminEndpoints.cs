@@ -163,7 +163,6 @@ public static class AdminEndpoints
                 x.Universite,
                 x.Bolum,
                 x.Sinif,
-                x.Kategori,
                 x.Durum,
                 x.OlusturmaTarihi,
                 x.GuncellemeTarihi,
@@ -198,7 +197,7 @@ public static class AdminEndpoints
         string[] headers =
         [
             "Basvuru No", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
-            "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu", "Kategori",
+            "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu",
             "Baba Adi", "Baba Sag Mi", "Baba Meslegi", "Baba Aylik Gelir",
             "Anne Adi", "Anne Sag Mi", "Anne Meslegi", "Anne Aylik Gelir", "Anne Baba Birlikte", "Birlikte Yasadigi Kisi Sayisi", "Es Aylik Gelir", "Hane Geliri",
             "Kardes Ilkokul-Orta-Lise", "Kardes Yuksekogretim", "Oturdugunuz Ev", "Ev Kira Bedeli",
@@ -227,7 +226,7 @@ public static class AdminEndpoints
             [
                 e.BasvuruNo, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
                 e.DogumTarihi?.ToString("dd.MM.yyyy"), e.DogumYeri, e.MedeniDurum,
-                e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu, e.Kategori,
+                e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu,
                 e.BabaAdi, e.BabaSagMi, e.BabaMeslegi, e.BabaAylikGelir,
                 e.AnneAdi, e.AnneSagMi, e.AnneMeslegi, e.AnneAylikGelir, e.AnneBabaBirlikte, e.BirlikteYasadigiKisiler, e.EsAylikGelir, e.HaneGeliri,
                 e.KardesIlkokul, e.KardesYuksek, e.OturdugunuzEv, e.EvKiraBedeli,
@@ -307,7 +306,7 @@ public static class AdminEndpoints
         var belgeler = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
             .Where(x => x.BasvuruId == e.Id)
             .OrderBy(x => x.YuklemeTarihi)
-            .Select(x => new { x.Id, x.BelgeKod, x.DosyaAdi, x.YuklemeTarihi })
+            .Select(x => new { x.Id, x.BelgeKod, x.DosyaAdi, x.SaklananAd, x.YuklemeTarihi })
             .ToListAsync(ct);
 
         return Results.Ok(new { success = true, data = ToAdminDto(e), belgeler });
@@ -317,7 +316,7 @@ public static class AdminEndpoints
         Guid id,
         Guid belgeId,
         BoytasWhContext db,
-        IWebHostEnvironment env,
+        BelgeStorageService storage,
         CancellationToken ct)
     {
         var row = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
@@ -327,13 +326,27 @@ public static class AdminEndpoints
             return Results.NotFound(new { success = false, message = "Belge bulunamadı." });
         }
 
-        var path = Path.Combine(env.ContentRootPath, "App_Data", "belgeler", row.SaklananAd);
-        if (!System.IO.File.Exists(path))
+        var path = storage.FindExistingPath(row.SaklananAd);
+        if (path is null)
         {
-            return Results.NotFound(new { success = false, message = "Dosya bulunamadı." });
+            return Results.NotFound(new { success = false, message = "Dosya diskte bulunamadı. Ortak alan yolunu ve izinleri kontrol edin." });
         }
 
-        return Results.File(path, "application/octet-stream", row.DosyaAdi);
+        var contentType = ContentTypeForAdmin(row.DosyaAdi);
+        var stream = System.IO.File.OpenRead(path);
+        return Results.File(stream, contentType, enableRangeProcessing: true);
+    }
+
+    private static string ContentTypeForAdmin(string? fileName)
+    {
+        var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream",
+        };
     }
 
     private static async Task<IResult> HandleDurum(
@@ -715,7 +728,6 @@ public static class AdminEndpoints
         e.Ilce,
         e.AcikAdres,
         e.Statu,
-        e.Kategori,
         e.BabaAdi,
         e.BabaSagMi,
         e.BabaMeslegi,

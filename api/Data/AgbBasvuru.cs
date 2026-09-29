@@ -53,9 +53,6 @@ public sealed class AgbBasvuru
     [MaxLength(120)]
     public string? Statu { get; set; }
 
-    [MaxLength(120)]
-    public string? Kategori { get; set; }
-
     [MaxLength(80)]
     public string? BabaAdi { get; set; }
 

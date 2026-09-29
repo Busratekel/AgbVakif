@@ -37,7 +37,6 @@ export type BasvuruData = {
   ilce: string
   acikAdres: string
   statu: string
-  kategori: string
   // Aile
   babaAdi: string
   babaSagMi: string
@@ -102,7 +101,6 @@ export const emptyBasvuru = (): BasvuruData => ({
   ilce: '',
   acikAdres: '',
   statu: '',
-  kategori: '',
   babaAdi: '',
   babaSagMi: '',
   babaMeslegi: '',

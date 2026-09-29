@@ -23,6 +23,34 @@ npm run dev
 - Site: http://localhost:5173  
 - API: http://localhost:5000  
 
+## IIS yayınlama (tek site)
+
+Sunucuda **ASP.NET Core Hosting Bundle** (net10) kurulu olmalı.
+
+Bilgisayarında proje klasöründe:
+
+```bash
+npm run build:iis
+```
+
+Bu komut siteyi derleyip `publish/` klasörüne koyar (içinde API + `wwwroot` frontend).
+
+Sonra:
+1. `publish` klasörünü sunucuya kopyala (örn. `C:\inetpub\AgbVakif`).
+2. IIS’te yeni site / uygulama oluştur; fiziksel yol bu klasör olsun.
+3. Application Pool → **No Managed Code**, 64-bit.
+4. Siteye hostname bağla: `agbvakfi.org` ve isteğe bağlı `www.agbvakfi.org` (HTTPS sertifikası tak).
+5. Klasöre yazma izni ver: `Uploads`, `App_Data` (IIS AppPool kimliği).
+6. `appsettings.json` içinde SQL / SMS / e-posta canlı ayarları doğru olsun.
+
+Kontrol: `https://agbvakfi.org/api/health` → `{"status":"ok"...}`  
+Ana sayfa ve `/basvuru/form` React rotası açılmalı.
+
+Admin’de güncelleme **405** verirse IIS WebDAV engelliyor demektir.  
+Site tamamen **500** olursa `web.config` bozulmuş olabilir: `aspNetCore` satırı kaybolmamalı.  
+`api/web.config.iis.example` dosyasına bak; publish çıktısındaki `web.config` ile karşılaştır.  
+Hata ayıklamak için `logs` klasörü oluşturup `stdoutLogEnabled="true"` yap.
+
 ## Başvuru dönemi (dinamik)
 
 Tablo: `BoytasWH.AGB_Vakif_Config` (AGB’ye özel ayarlar; Graph hâlâ `PB_Config`).
@@ -40,7 +68,19 @@ API açılışında `Create_AGB_Vakif_Config.sql` çalışır (tablo + yoksa see
 
 
 
-## SMS
+## Belge depolama (ortak alan)
+
+`appsettings.json`:
+
+```json
+"Storage": {
+  "BelgeRootPath": "\\\\10.100.3.126\\bilgi_teknolojileri\\YAZILIM_UYGULAMA\\HIZMETE_OZEL"
+}
+```
+
+Boş bırakılırsa yerel `App_Data/belgeler` kullanılır.  
+Dosyalar `{BelgeRoot}/{BasvuruNo}/{guid}.pdf` şeklinde kaydedilir; veritabanında yalnızca göreli yol (`SaklananAd`) tutulur.  
+IIS AppPool kimliğinin bu UNC paylaşımına **yazma** izni olmalıdır.
 
 `Sms:Provider`: `Turatel` (Bellona OTP / Turatel XML) | `Bms` (Erciyes) | `Development` (sadece log)
 

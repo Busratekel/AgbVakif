@@ -21,6 +21,7 @@ public static class BasvuruEndpoints
         group.MapPut("/me", HandleSaveMe);
         group.MapPost("/me/gonder", HandleSubmitMe);
         group.MapGet("/me/belgeler", HandleListBelgeler);
+        group.MapGet("/me/belgeler/{belgeId:guid}", HandleDownloadMyBelge);
         group.MapPost("/me/belgeler", HandleUploadBelge).DisableAntiforgery();
         group.MapDelete("/me/belgeler/{belgeId:guid}", HandleDeleteBelge);
     }
@@ -124,7 +125,7 @@ public static class BasvuruEndpoints
 
         var groups = await approved
             .Where(x => x.GuncellemeTarihi.Year == selected)
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.Kategori) ? "Diğer" : x.Kategori!.Trim())
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Universite) ? "Diğer" : x.Universite!.Trim())
             .Select(g => new { label = g.Key, count = g.Count() })
             .OrderByDescending(x => x.count)
             .ThenBy(x => x.label)
@@ -501,11 +502,51 @@ public static class BasvuruEndpoints
         return Results.Ok(new { success = true, items });
     }
 
+    private static async Task<IResult> HandleDownloadMyBelge(
+        Guid belgeId,
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        BelgeStorageService storage,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+        var entity = await FindMine(db, access.TcKimlikNo, ct);
+        if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+
+        var row = await db.AGB_Vakif_BasvuruBelge.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == belgeId && x.BasvuruId == entity.Id, ct);
+        if (row is null) return Results.NotFound(new { success = false, message = "Belge bulunamadı." });
+
+        var path = storage.FindExistingPath(row.SaklananAd);
+        if (path is null)
+        {
+            return Results.NotFound(new { success = false, message = "Dosya diskte bulunamadı. Ortak alan yolunu ve izinleri kontrol edin." });
+        }
+
+        var contentType = ContentTypeFor(row.DosyaAdi);
+        var stream = System.IO.File.OpenRead(path);
+        return Results.File(stream, contentType, enableRangeProcessing: true);
+    }
+
+    private static string ContentTypeFor(string? fileName)
+    {
+        var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream",
+        };
+    }
+
     private static async Task<IResult> HandleUploadBelge(
         HttpContext http,
         BoytasWhContext db,
         OtpSessionService sessions,
-        IWebHostEnvironment env,
+        BelgeStorageService storage,
         CancellationToken ct)
     {
         var access = RequireAccess(http, sessions);
@@ -539,24 +580,28 @@ public static class BasvuruEndpoints
             return Results.BadRequest(new { success = false, message = "Yalnızca PDF, JPG veya PNG yükleyebilirsiniz." });
         }
 
-        var dir = Path.Combine(env.ContentRootPath, "App_Data", "belgeler");
-        Directory.CreateDirectory(dir);
-
         var previous = await db.AGB_Vakif_BasvuruBelge
             .Where(x => x.BasvuruId == entity.Id && x.BelgeKod == kod)
             .ToListAsync(ct);
         foreach (var old in previous)
         {
-            var oldPath = Path.Combine(dir, old.SaklananAd);
-            if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+            storage.TryDelete(old.SaklananAd);
             db.AGB_Vakif_BasvuruBelge.Remove(old);
         }
 
-        var stored = $"{Guid.NewGuid():N}{ext}";
-        var full = Path.Combine(dir, stored);
-        await using (var stream = System.IO.File.Create(full))
+        string fullPath;
+        try
         {
-            await file.CopyToAsync(stream, ct);
+            await using var upload = file.OpenReadStream();
+            fullPath = await storage.SaveAsync(entity.BasvuruNo, entity.Id, ext, upload, ct);
+        }
+        catch (Exception)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "Dosya ortak alana kaydedilemedi. Depolama yolunu ve yazma izinlerini kontrol edin.",
+            });
         }
 
         var row = new AgbBasvuruBelge
@@ -565,7 +610,7 @@ public static class BasvuruEndpoints
             BasvuruId = entity.Id,
             BelgeKod = kod,
             DosyaAdi = Path.GetFileName(file.FileName),
-            SaklananAd = stored,
+            SaklananAd = fullPath,
             YuklemeTarihi = DateTime.UtcNow,
         };
         db.AGB_Vakif_BasvuruBelge.Add(row);
@@ -582,7 +627,7 @@ public static class BasvuruEndpoints
         HttpContext http,
         BoytasWhContext db,
         OtpSessionService sessions,
-        IWebHostEnvironment env,
+        BelgeStorageService storage,
         CancellationToken ct)
     {
         var access = RequireAccess(http, sessions);
@@ -598,8 +643,7 @@ public static class BasvuruEndpoints
             .FirstOrDefaultAsync(x => x.Id == belgeId && x.BasvuruId == entity.Id, ct);
         if (row is null) return Results.NotFound(new { success = false, message = "Belge bulunamadı." });
 
-        var path = Path.Combine(env.ContentRootPath, "App_Data", "belgeler", row.SaklananAd);
-        if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+        storage.TryDelete(row.SaklananAd);
         db.AGB_Vakif_BasvuruBelge.Remove(row);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { success = true });
@@ -683,7 +727,6 @@ public static class BasvuruEndpoints
         entity.Ilce = request.Ilce.Trim();
         entity.AcikAdres = request.AcikAdres?.Trim();
         entity.Statu = request.Statu.Trim();
-        entity.Kategori = string.IsNullOrWhiteSpace(request.Kategori) ? null : request.Kategori.Trim();
         entity.BabaAdi = request.BabaAdi?.Trim();
         entity.BabaSagMi = request.BabaSagMi?.Trim();
         entity.BabaMeslegi = request.BabaMeslegi?.Trim();
@@ -747,7 +790,6 @@ public static class BasvuruEndpoints
         Ilce = e.Ilce,
         AcikAdres = e.AcikAdres,
         Statu = e.Statu,
-        Kategori = e.Kategori,
         BabaAdi = e.BabaAdi,
         BabaSagMi = e.BabaSagMi,
         BabaMeslegi = e.BabaMeslegi,

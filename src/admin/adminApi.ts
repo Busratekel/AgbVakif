@@ -177,6 +177,7 @@ export async function adminDownloadBelge(basvuruId: string, belgeId: string, fil
 
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
+  // İndir için dosya adını koru
   const a = document.createElement('a')
   a.href = url
   a.download = fileName || 'belge'
@@ -184,6 +185,63 @@ export async function adminDownloadBelge(basvuruId: string, belgeId: string, fil
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+/** Belgeyi yeni sekmede açar (önizleme). */
+export async function adminOpenBelge(basvuruId: string, belgeId: string) {
+  let response: Response
+  try {
+    response = await fetch(`${FORM_API_URL}/admin/basvurular/${basvuruId}/belgeler/${belgeId}`, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
+    })
+  } catch {
+    throw new Error('Sunucuya bağlanılamadı. API çalışıyor mu kontrol edin.')
+  }
+
+  if (response.status === 401) {
+    redirectToAdminLogin()
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yapmanız gerekiyor.')
+  }
+  if (!response.ok) {
+    const raw = await response.text()
+    let json: any = {}
+    try { json = JSON.parse(raw) } catch { /* ignore */ }
+    throw new Error(json.message || formatAdminError(response.status, json, raw) || `Belge açılamadı (${response.status})`)
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const opened = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!opened) {
+    // popup engellendiyse indir
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+}
+
+/** Resim önizlemesi için blob URL üretir; kullanınca revoke edin. */
+export async function adminBelgeBlobUrl(basvuruId: string, belgeId: string) {
+  const response = await fetch(`${FORM_API_URL}/admin/basvurular/${basvuruId}/belgeler/${belgeId}`, {
+    headers: { Authorization: `Bearer ${getAdminToken()}` },
+  })
+  if (response.status === 401) {
+    redirectToAdminLogin()
+    throw new Error('Oturum süresi dolmuş. Tekrar giriş yapmanız gerekiyor.')
+  }
+  if (!response.ok) {
+    const raw = await response.text()
+    let json: any = {}
+    try { json = JSON.parse(raw) } catch { /* ignore */ }
+    throw new Error(json.message || 'Belge alınamadı')
+  }
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
 }
 
 function redirectToAdminLogin() {
@@ -257,7 +315,6 @@ export type AdminBasvuruListItem = {
   universite?: string
   bolum?: string
   sinif?: string
-  kategori?: string
   durum?: string
   olusturmaTarihi?: string
   guncellemeTarihi?: string

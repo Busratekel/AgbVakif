@@ -12,7 +12,10 @@ builder.Services.Configure<SmsOptions>(
     builder.Configuration.GetSection(SmsOptions.SectionName));
 builder.Services.Configure<AppAuthorizationOptions>(
     builder.Configuration.GetSection(AppAuthorizationOptions.SectionName));
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.AddSingleton<IAdminAccessService, AdminAccessService>();
+builder.Services.AddSingleton<BelgeStorageService>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CaptchaService>();
@@ -50,7 +53,11 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
-                "https://localhost:5173")
+                "https://localhost:5173",
+                "https://agbvakfi.org",
+                "https://www.agbvakfi.org",
+                "http://agbvakfi.org",
+                "http://www.agbvakfi.org")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -75,6 +82,18 @@ await EnsureHeroSlideTableAsync(app);
 
 var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "Uploads");
 Directory.CreateDirectory(Path.Combine(uploadsRoot, "hero"));
+try
+{
+    var belgeRoot = app.Services.GetRequiredService<BelgeStorageService>().GetRoot();
+    Directory.CreateDirectory(belgeRoot);
+}
+catch (Exception ex)
+{
+    logger.LogWarning(ex, "Belge kök klasörü oluşturulamadı. Storage:BelgeRootPath ve paylaşım izinlerini kontrol edin.");
+}
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsRoot),
@@ -83,36 +102,13 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseCors("Frontend");
 
-app.MapGet("/", () => Results.Ok(new
-{
-    name = "AgbVakif.Api",
-    status = "ok",
-    endpoints = new[]
-    {
-        "/api/health",
-        "GET /api/basvuru/donem",
-        "GET /api/basvuru/istatistik",
-        "POST /api/basvuru/kimlik",
-        "POST /api/basvuru/sms-dogrula",
-        "GET /api/basvuru/me",
-        "PUT /api/basvuru/me",
-        "POST /api/basvuru/me/gonder",
-        "POST /api/admin/login",
-        "GET /api/hero",
-        "GET /api/admin/hero",
-        "GET /api/admin/basvurular",
-        "GET /api/admin/basvurular/{id}",
-        "PATCH /api/admin/basvurular/{id}/durum",
-        "GET /api/admin/config",
-        "PUT /api/admin/config",
-    },
-}));
-
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", provider = "Graph" }));
 
 app.MapBasvuruEndpoints();
 app.MapAdminEndpoints();
 app.MapHeroEndpoints();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

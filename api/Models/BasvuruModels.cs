@@ -60,9 +60,6 @@ public sealed class BasvuruKaydetRequest
     [Required, MaxLength(120)]
     public string Statu { get; set; } = "";
 
-    [MaxLength(120)]
-    public string? Kategori { get; set; }
-
     [MaxLength(80)]
     public string? BabaAdi { get; set; }
 
@@ -192,7 +189,6 @@ public sealed class BasvuruDto
     public string? Ilce { get; set; }
     public string? AcikAdres { get; set; }
     public string? Statu { get; set; }
-    public string? Kategori { get; set; }
     public string? BabaAdi { get; set; }
     public string? BabaSagMi { get; set; }
     public string? BabaMeslegi { get; set; }

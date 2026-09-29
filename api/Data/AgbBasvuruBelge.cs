@@ -17,7 +17,7 @@ public sealed class AgbBasvuruBelge
     [MaxLength(260)]
     public string DosyaAdi { get; set; } = "";
 
-    [MaxLength(80)]
+    [MaxLength(1000)]
     public string SaklananAd { get; set; } = "";
 
     public DateTime YuklemeTarihi { get; set; }

@@ -175,6 +175,13 @@ export function Header() {
               ))}
             </div>
           </div>
+          <Link
+            to="/iletisim"
+            className={location.pathname === '/iletisim' ? 'is-active' : undefined}
+            onClick={closeAll}
+          >
+            İletişim
+          </Link>
 
           <Link
             to="/basvuru/form?giris=1"
@@ -182,13 +189,6 @@ export function Header() {
             onClick={closeAll}
           >
             Başvurum
-          </Link>
-          <Link
-            to="/iletisim"
-            className={location.pathname === '/iletisim' ? 'is-active' : undefined}
-            onClick={closeAll}
-          >
-            İletişim
           </Link>
         </nav>
       </div>

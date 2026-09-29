@@ -38,18 +38,6 @@ export const STATUSES = [
   'Kurum / STK başvurusu',
 ] as const
 
-export const CATEGORIES = [
-  'Eğitim',
-  'Sağlık',
-  'Spor',
-  'Ekonomik / Sosyal destek',
-  'Kültür ve sanat',
-  'Toplumsal kalkınma',
-  'Afet / Acil durum desteği',
-  'Proje / Kurumsal iş birliği',
-  'Diğer',
-] as const
-
 export const ABOUT = {
   lead: `Anadolu Güçbirliği Vakfı; eğitim, sağlık, spor, ekonomik ve kültürel dayanışma ile toplumsal kalkınma alanlarında faaliyet göstermek üzere kurulmuştur. Desteklerimiz öncelikle Anadolu Güçbirliği Holding ve grup firmaları çalışanları, çocukları ve birinci dereceden yakınlarına yöneliktir; aynı zamanda genel topluma açıktır.`,
   pillars: [
@@ -250,7 +238,7 @@ export const BASVURU_FAQ = [
   },
   {
     q: 'Sonuç nasıl öğrenilir?',
-    a: 'Burs verilmesi uygun görülen öğrenciler e-posta veya SMS yoluyla bilgilendirilir.',
+    a: 'Burs verilmesi uygun görülen öğrenciler e-posta veya SMS yoluyla bilgilendirilir veya Başvurum kısmından sonuçları görüntüleyebilir.',
   },
 ] as const
 

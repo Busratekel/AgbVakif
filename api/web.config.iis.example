@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sunucudaki site köküne konacak örnek web.config.
+  npm run build:iis sonrası publish\web.config genelde doğru oluşur;
+  elle bozulduysa bunu kullan, sadece dll adı aynı kalsın.
+-->
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <modules>
+        <remove name="WebDAVModule" />
+      </modules>
+      <handlers>
+        <remove name="WebDAV" />
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+      </handlers>
+      <aspNetCore processPath="dotnet"
+                  arguments=".\AgbVakif.Api.dll"
+                  stdoutLogEnabled="true"
+                  stdoutLogFile=".\logs\stdout"
+                  hostingModel="inprocess" />
+      <security>
+        <requestFiltering>
+          <requestLimits maxAllowedContentLength="47185920" />
+        </requestFiltering>
+      </security>
+    </system.webServer>
+  </location>
+</configuration>
