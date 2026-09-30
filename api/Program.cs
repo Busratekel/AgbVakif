@@ -54,10 +54,11 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "https://localhost:5173",
-                "https://agbvakfi.org",
-                "https://www.agbvakfi.org",
-                "http://agbvakfi.org",
-                "http://www.agbvakfi.org")
+                "https://anadolugucbirligivakfi.org.tr",
+                "https://www.anadolugucbirligivakfi.org.tr",
+                "http://anadolugucbirligivakfi.org.tr",
+                "http://www.anadolugucbirligivakfi.org.tr"
+                )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

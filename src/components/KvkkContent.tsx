@@ -4,8 +4,8 @@ import { APPLICATION_EMAIL, CONTACT, SITE } from '../config'
 export const CONTROLLER = {
   name: SITE.name,
   shortName: 'Vakıf',
-  websiteLabel: 'www.anadolugucbirligivakfi.org',
-  websiteHref: 'https://www.anadolugucbirligivakfi.org',
+  websiteLabel: 'www.anadolugucbirligivakfi.org.tr',
+  websiteHref: 'https://www.anadolugucbirligivakfi.org.tr',
   phones: [CONTACT.phone],
   kep: '—',
   kvkkEmail: APPLICATION_EMAIL,

@@ -17,8 +17,8 @@
   --font-display: 'DM Sans', system-ui, sans-serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-quote: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  --fs-text: 14px;
-  --fs-heading: 16px;
+  --fs-text: 16px;
+  --fs-heading: 18px;
   --shell: min(1120px, calc(100% - 2.5rem));
 }
 
@@ -190,11 +190,28 @@ textarea {
   gap: 1rem;
 }
 
+.header-slogan {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: var(--forest);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-left: -1.25rem;
+  flex-shrink: 0;
 }
 
 .brand img {
@@ -224,6 +241,7 @@ nav {
   display: flex;
   align-items: center;
   gap: 1.25rem;
+  flex-shrink: 0;
 }
 
 nav a,
@@ -472,16 +490,16 @@ nav a:not(.btn):hover,
   color: var(--gold-soft);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 16px;
   font-weight: 500;
 }
 
 .hero-brand {
   display: block;
   font-family: var(--font-display);
-  font-size: var(--fs-heading);
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--gold-soft);
 }
@@ -569,7 +587,7 @@ nav a:not(.btn):hover,
   font-family: var(--font-quote);
   font-style: italic;
   font-weight: 400;
-  font-size: 1.125rem;
+  font-size: 20px;
   line-height: 1.75;
   color: var(--ink);
   letter-spacing: 0.01em;
@@ -578,7 +596,7 @@ nav a:not(.btn):hover,
 .hero-below p:last-child {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 1.3rem;
 }
 
 /* About */
@@ -1329,7 +1347,7 @@ nav a:not(.btn):hover,
 
 .footer-legal-links a {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 1.0rem;
   text-decoration: none;
 }
 
@@ -1490,6 +1508,10 @@ nav a:not(.btn):hover,
 }
 
 @media (max-width: 760px) {
+  .header-slogan {
+    display: none;
+  }
+
   .nav-toggle {
     display: inline-grid;
     place-content: center;

@@ -70,6 +70,10 @@ export function Header() {
           <img src="/logo.png" alt={SITE.name} />
         </Link>
 
+        <p className="header-slogan" aria-hidden="true">
+          ANADOLU GÜÇBİRLİĞİ VAKFI
+        </p>
+
         <button
           className="nav-toggle"
           type="button"

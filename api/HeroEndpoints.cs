@@ -60,7 +60,23 @@ public static class HeroEndpoints
         IWebHostEnvironment env,
         CancellationToken ct)
     {
-        var form = await request.ReadFormAsync(ct);
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync(ct);
+        }
+        catch (BadHttpRequestException ex)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = ex.Message.Contains("size", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("boyut", StringComparison.OrdinalIgnoreCase)
+                    ? "Dosya çok büyük. Video en fazla 40 MB, görsel en fazla 5 MB olabilir."
+                    : $"İstek okunamadı: {ex.Message}",
+            });
+        }
+
         var baslik = (form["baslik"].ToString() ?? "").Trim();
         var ustBaslik = NullIfEmpty(form["ustBaslik"].ToString());
         var butonMetin = NullIfEmpty(form["butonMetin"].ToString());
@@ -128,7 +144,23 @@ public static class HeroEndpoints
             return Results.NotFound(new { success = false, message = "Slayt bulunamadı." });
         }
 
-        var form = await request.ReadFormAsync(ct);
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync(ct);
+        }
+        catch (BadHttpRequestException ex)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = ex.Message.Contains("size", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("boyut", StringComparison.OrdinalIgnoreCase)
+                    ? "Dosya çok büyük. Video en fazla 40 MB, görsel en fazla 5 MB olabilir."
+                    : $"İstek okunamadı: {ex.Message}",
+            });
+        }
+
         var baslik = (form["baslik"].ToString() ?? "").Trim();
         var ustBaslik = NullIfEmpty(form["ustBaslik"].ToString());
         var butonMetin = NullIfEmpty(form["butonMetin"].ToString());
@@ -222,15 +254,22 @@ public static class HeroEndpoints
         }
 
         var dir = Path.Combine(env.ContentRootPath, "Uploads", "hero");
-        Directory.CreateDirectory(dir);
-        var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
-        var path = Path.Combine(dir, name);
-        await using (var stream = File.Create(path))
+        try
         {
-            await file.CopyToAsync(stream, ct);
-        }
+            Directory.CreateDirectory(dir);
+            var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+            var path = Path.Combine(dir, name);
+            await using (var stream = File.Create(path))
+            {
+                await file.CopyToAsync(stream, ct);
+            }
 
-        return ($"/uploads/hero/{name}", null);
+            return ($"/uploads/hero/{name}", null);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Medya kaydedilemedi (sunucu yazma izni/klasör): {ex.Message}");
+        }
     }
 
     private static void TryDeleteMedia(string? url, IWebHostEnvironment env)

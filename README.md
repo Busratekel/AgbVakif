@@ -39,11 +39,11 @@ Sonra:
 1. `publish` klasörünü sunucuya kopyala (örn. `C:\inetpub\AgbVakif`).
 2. IIS’te yeni site / uygulama oluştur; fiziksel yol bu klasör olsun.
 3. Application Pool → **No Managed Code**, 64-bit.
-4. Siteye hostname bağla: `agbvakfi.org` ve isteğe bağlı `www.agbvakfi.org` (HTTPS sertifikası tak).
+4. Siteye hostname bağla: `anadolugucbirligivakfi.org.tr` ve isteğe bağlı `www.anadolugucbirligivakfi.org.tr` (HTTPS sertifikası tak).
 5. Klasöre yazma izni ver: `Uploads`, `App_Data` (IIS AppPool kimliği).
 6. `appsettings.json` içinde SQL / SMS / e-posta canlı ayarları doğru olsun.
 
-Kontrol: `https://agbvakfi.org/api/health` → `{"status":"ok"...}`  
+Kontrol: `https://anadolugucbirligivakfi.org.tr/api/health` → `{"status":"ok"...}`  
 Ana sayfa ve `/basvuru/form` React rotası açılmalı.
 
 Admin’de güncelleme **405** verirse IIS WebDAV engelliyor demektir.  
@@ -79,8 +79,8 @@ API açılışında `Create_AGB_Vakif_Config.sql` çalışır (tablo + yoksa see
 ```
 
 Boş bırakılırsa yerel `App_Data/belgeler` kullanılır.  
-Dosyalar `{BelgeRoot}/{BasvuruNo}/{guid}.pdf` şeklinde kaydedilir; veritabanında yalnızca göreli yol (`SaklananAd`) tutulur.  
-IIS AppPool kimliğinin bu UNC paylaşımına **yazma** izni olmalıdır.
+Dosyalar `{BelgeRoot}/{BasvuruNo}/{guid}.pdf` şeklinde kaydedilir; veritabanında **tam fiziksel yol** (`SaklananAd`) tutulur.  
+IIS AppPool kimliğinin bu UNC paylaşımına **okuma/yazma** izni olmalıdır. Hero medyası için site klasöründeki `Uploads` (özellikle `Uploads\hero`) yazılabilir olmalı.
 
 `Sms:Provider`: `Turatel` (Bellona OTP / Turatel XML) | `Bms` (Erciyes) | `Development` (sadece log)
 
