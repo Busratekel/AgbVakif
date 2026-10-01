@@ -74,7 +74,7 @@ export function Footer() {
               {item.label}
             </Link>
           ))}
-          <button type="button" className="linkish footer-cookie-btn" onClick={openPreferences}>
+          <button type="button" className="footer-cookie-btn" onClick={openPreferences}>
             Çerez tercihleri
           </button>
         </nav>

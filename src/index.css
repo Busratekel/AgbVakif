@@ -3757,12 +3757,21 @@ nav a:not(.btn):hover,
 }
 
 .footer-cookie-btn {
+  appearance: none;
   background: none;
   border: 0;
   padding: 0;
+  margin: 0;
   font: inherit;
+  font-size: 1rem;
+  line-height: inherit;
+  color: var(--muted);
+  text-decoration: none;
   cursor: pointer;
-  color: inherit;
+}
+
+.footer-cookie-btn:hover {
+  color: var(--forest);
 }
 
 @media (max-width: 780px) {
