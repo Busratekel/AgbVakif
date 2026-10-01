@@ -10,14 +10,16 @@ export function CerezPolitikasi() {
 
           <p>
             İnternet sitelerimizden en verimli şekilde faydalanabilmeniz ve kullanıcı
-            deneyiminizi geliştirebilmek için çerezler kullanmaktayız. Çerez
+            deneyiminizi geliştirebilmek için çerezler kullanmaktayız. Siteye ilk
+            girişinizde çerez tercihlerinizi yönetebileceğiniz bir bildirim
+            gösterilir; dilediğiniz zaman sayfa altındaki &quot;Çerez tercihleri&quot;
+            bağlantısından seçiminizi güncelleyebilirsiniz. Çerez
             kullanılmasını tercih etmezseniz tarayıcınızın ayarlarından veya aşağıdaki
             detaylı çerez kaldırma açıklamasından çerezleri silebilir ya da
             engelleyebilirsiniz. Ancak bunun internet sitelerimizin kullanımınızı
-            etkileyebileceğini hatırlatmak isteriz. Tarayıcınızdan çerez ayarlarınızı
-            değiştirmediğiniz sürece internet sitelerimizde çerez kullanımını kabul
-            ettiğinizi varsayacağız. Toplanan verilerle ilgili düzenlemelere internet
-            sitelerimizde yer alan aydınlatma metninden ulaşabilirsiniz.
+            etkileyebileceğini hatırlatmak isteriz. Toplanan verilerle ilgili
+            düzenlemelere internet sitelerimizde yer alan aydınlatma metninden
+            ulaşabilirsiniz.
           </p>
           <p>
             Çerezlerimiz, internet sitelerimizi kullanmanız sırasında size

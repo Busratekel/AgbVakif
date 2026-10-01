@@ -4,6 +4,7 @@ import { Hero } from './components/Hero'
 import { HeroBelowMessage } from './components/HeroBelowMessage'
 import { Footer } from './components/Footer'
 import { AnnouncementPopup } from './components/AnnouncementPopup'
+import { CookieConsentProvider } from './components/CookieConsent'
 import { KvkkProvider } from './components/KvkkModal'
 import { ScrollToTop } from './components/ScrollToTop'
 import { BasvuruLayout } from './components/BasvuruLayout'
@@ -42,12 +43,14 @@ import {
 function PublicLayout() {
   return (
     <KvkkProvider>
-      <AnnouncementPopup />
-      <Header />
-      <main>
-        <Outlet />
-      </main>
-      <Footer />
+      <CookieConsentProvider>
+        <AnnouncementPopup />
+        <Header />
+        <main>
+          <Outlet />
+        </main>
+        <Footer />
+      </CookieConsentProvider>
     </KvkkProvider>
   )
 }

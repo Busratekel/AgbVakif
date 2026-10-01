@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BASVURU_NAV, KURUMSAL_NAV, MEDYA_NAV, SITE } from '../config'
+import { useCookieConsent } from './CookieConsent'
 
 const LEGAL_LINKS = [
   { to: '/yasal/kvkk', label: 'KVKK metni' },
@@ -8,6 +9,8 @@ const LEGAL_LINKS = [
 ] as const
 
 export function Footer() {
+  const { openPreferences } = useCookieConsent()
+
   return (
     <footer className="site-footer" id="footer-contact">
       <div className="shell footer-grid">
@@ -71,6 +74,9 @@ export function Footer() {
               {item.label}
             </Link>
           ))}
+          <button type="button" className="linkish footer-cookie-btn" onClick={openPreferences}>
+            Çerez tercihleri
+          </button>
         </nav>
       </div>
     </footer>
