@@ -12,6 +12,9 @@ public sealed class KimlikRequest
 
     [Required]
     public bool KvkkOnay { get; set; }
+
+    /// <summary>Burs (varsayılan) veya Destek.</summary>
+    public string? BasvuruTipi { get; set; }
 }
 
 public sealed class SmsDogrulaRequest
@@ -59,6 +62,15 @@ public sealed class BasvuruKaydetRequest
 
     [Required, MaxLength(120)]
     public string Statu { get; set; } = "";
+
+    [MaxLength(80)]
+    public string? Kategori { get; set; }
+
+    [MaxLength(40)]
+    public string? TalepTutari { get; set; }
+
+    [MaxLength(4000)]
+    public string? TalepOzeti { get; set; }
 
     [MaxLength(80)]
     public string? BabaAdi { get; set; }
@@ -175,6 +187,7 @@ public sealed class BasvuruDto
 {
     public Guid Id { get; set; }
     public string? BasvuruNo { get; set; }
+    public string BasvuruTipi { get; set; } = "Burs";
     public string TcKimlikNoMasked { get; set; } = "";
     public string TelefonMasked { get; set; } = "";
     public string? Ad { get; set; }
@@ -189,6 +202,9 @@ public sealed class BasvuruDto
     public string? Ilce { get; set; }
     public string? AcikAdres { get; set; }
     public string? Statu { get; set; }
+    public string? Kategori { get; set; }
+    public string? TalepTutari { get; set; }
+    public string? TalepOzeti { get; set; }
     public string? BabaAdi { get; set; }
     public string? BabaSagMi { get; set; }
     public string? BabaMeslegi { get; set; }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BASVURU_NAV, KURUMSAL_NAV, MEDYA_NAV, SITE } from '../config'
+// import { YARDIM_NAV } from '../config' — Yardım menüsü yorumdayken
 
-type DropKey = 'kurumsal' | 'medya' | 'basvuru' | null
+type DropKey = 'kurumsal' | 'medya' | 'basvuru' | 'yardim' | null
 
 function canHover() {
   return window.matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -16,6 +17,7 @@ export function Header() {
   const kurumsalRef = useRef<HTMLDivElement>(null)
   const medyaRef = useRef<HTMLDivElement>(null)
   const basvuruRef = useRef<HTMLDivElement>(null)
+  // const yardimRef = useRef<HTMLDivElement>(null) — Yardım menüsü yorumdayken
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24 || location.pathname !== '/')
@@ -45,6 +47,7 @@ export function Header() {
         kurumsalRef.current?.contains(t)
         || medyaRef.current?.contains(t)
         || basvuruRef.current?.contains(t)
+        // || yardimRef.current?.contains(t)
       ) {
         return
       }
@@ -57,6 +60,7 @@ export function Header() {
   const kurumsalActive = location.pathname.startsWith('/kurumsal')
   const medyaActive = location.pathname.startsWith('/medya')
   const basvuruActive = location.pathname.startsWith('/basvuru')
+  // const yardimActive = location.pathname.startsWith('/yardim')
 
   function closeAll() {
     setDropOpen(null)
@@ -179,6 +183,40 @@ export function Header() {
               ))}
             </div>
           </div>
+
+          {/* Yardım menüsü — geçici olarak gizlendi
+          <div
+            className={`nav-drop${dropOpen === 'yardim' ? ' is-open' : ''}`}
+            ref={yardimRef}
+            onMouseEnter={() => {
+              if (canHover()) setDropOpen('yardim')
+            }}
+            onMouseLeave={() => {
+              if (canHover()) setDropOpen((v) => (v === 'yardim' ? null : v))
+            }}
+          >
+            <Link
+              to={YARDIM_NAV[0].to}
+              className={`nav-drop-btn${yardimActive ? ' is-active' : ''}`}
+              aria-haspopup="true"
+              aria-expanded={dropOpen === 'yardim'}
+              onClick={closeAll}
+            >
+              Yardım
+              <span className="nav-drop-chevron" aria-hidden="true">
+                ▾
+              </span>
+            </Link>
+            <div className="nav-drop-menu" role="menu">
+              {YARDIM_NAV.map((item) => (
+                <Link key={item.to} to={item.to} role="menuitem" onClick={closeAll}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+          */}
+
           <Link
             to="/iletisim"
             className={location.pathname === '/iletisim' ? 'is-active' : undefined}

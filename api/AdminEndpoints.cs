@@ -21,6 +21,7 @@ public static class AdminEndpoints
         "BasvuruBaslangic",
         "BasvuruBitis",
         "MinDogumTarihi",
+        "YardimBasvuruAktif",
     ];
 
     public static void MapAdminEndpoints(this WebApplication app)
@@ -137,6 +138,7 @@ public static class AdminEndpoints
         BoytasWhContext db,
         string? q,
         string? durum,
+        string? tip,
         int page = 1,
         int pageSize = 25,
         CancellationToken ct = default)
@@ -144,7 +146,7 @@ public static class AdminEndpoints
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum);
+        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum, tip);
 
         var total = await query.CountAsync(ct);
         var items = await query
@@ -155,11 +157,13 @@ public static class AdminEndpoints
             {
                 x.Id,
                 x.BasvuruNo,
+                basvuruTipi = x.BasvuruTipi,
                 x.Ad,
                 x.Soyad,
                 tcKimlikNo = x.TcKimlikNo,
                 x.Telefon,
                 x.Eposta,
+                x.Kategori,
                 x.Universite,
                 x.Bolum,
                 x.Sinif,
@@ -184,9 +188,10 @@ public static class AdminEndpoints
         BoytasWhContext db,
         string? q,
         string? durum,
+        string? tip,
         CancellationToken ct)
     {
-        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum);
+        var query = FilterBasvurular(db.AGB_Vakif_Basvuru.AsNoTracking(), q, durum, tip);
         var rows = await query
             .OrderByDescending(x => x.SonGonderimTarihi ?? x.GuncellemeTarihi)
             .ToListAsync(ct);
@@ -196,8 +201,9 @@ public static class AdminEndpoints
 
         string[] headers =
         [
-            "Basvuru No", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
+            "Basvuru No", "Basvuru Tipi", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
             "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu",
+            "Kategori", "Talep Tutari", "Talep Ozeti",
             "Baba Adi", "Baba Sag Mi", "Baba Meslegi", "Baba Aylik Gelir",
             "Anne Adi", "Anne Sag Mi", "Anne Meslegi", "Anne Aylik Gelir", "Anne Baba Birlikte", "Birlikte Yasadigi Kisi Sayisi", "Es Aylik Gelir", "Hane Geliri",
             "Kardes Ilkokul-Orta-Lise", "Kardes Yuksekogretim", "Oturdugunuz Ev", "Ev Kira Bedeli",
@@ -224,9 +230,10 @@ public static class AdminEndpoints
             var r = i + 2;
             object?[] values =
             [
-                e.BasvuruNo, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
+                e.BasvuruNo, e.BasvuruTipi, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
                 e.DogumTarihi?.ToString("dd.MM.yyyy"), e.DogumYeri, e.MedeniDurum,
                 e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu,
+                e.Kategori, e.TalepTutari, e.TalepOzeti,
                 e.BabaAdi, e.BabaSagMi, e.BabaMeslegi, e.BabaAylikGelir,
                 e.AnneAdi, e.AnneSagMi, e.AnneMeslegi, e.AnneAylikGelir, e.AnneBabaBirlikte, e.BirlikteYasadigiKisiler, e.EsAylikGelir, e.HaneGeliri,
                 e.KardesIlkokul, e.KardesYuksek, e.OturdugunuzEv, e.EvKiraBedeli,
@@ -261,9 +268,16 @@ public static class AdminEndpoints
     private static IQueryable<AgbBasvuru> FilterBasvurular(
         IQueryable<AgbBasvuru> query,
         string? q,
-        string? durum)
+        string? durum,
+        string? tip = null)
     {
         query = query.Where(x => x.Durum != "Taslak");
+
+        if (!string.IsNullOrWhiteSpace(tip))
+        {
+            var t = BasvuruTipi.Normalize(tip);
+            query = query.Where(x => x.BasvuruTipi == t);
+        }
 
         if (!string.IsNullOrWhiteSpace(durum))
         {
@@ -285,6 +299,7 @@ public static class AdminEndpoints
                 x.TcKimlikNo.Contains(term) ||
                 (x.Eposta != null && x.Eposta.Contains(term)) ||
                 (x.Universite != null && x.Universite.Contains(term)) ||
+                (x.Kategori != null && x.Kategori.Contains(term)) ||
                 (x.Telefon != null && x.Telefon.Contains(term)) ||
                 (x.BasvuruNo != null && x.BasvuruNo.Contains(term)));
         }
@@ -714,6 +729,7 @@ public static class AdminEndpoints
     {
         e.Id,
         e.BasvuruNo,
+        basvuruTipi = e.BasvuruTipi,
         tcKimlikNo = e.TcKimlikNo,
         telefon = e.Telefon,
         e.Ad,
@@ -728,6 +744,9 @@ public static class AdminEndpoints
         e.Ilce,
         e.AcikAdres,
         e.Statu,
+        e.Kategori,
+        e.TalepTutari,
+        e.TalepOzeti,
         e.BabaAdi,
         e.BabaSagMi,
         e.BabaMeslegi,

@@ -104,10 +104,15 @@ export async function adminFetch(path: string, init?: RequestInit): Promise<any>
 }
 
 /** Filtreli başvuruları Excel (.xlsx) olarak indirir. */
-export async function adminDownloadBasvuruExcel(params: { q?: string; durum?: string }) {
+export async function adminDownloadBasvuruExcel(params: {
+  q?: string
+  durum?: string
+  tip?: string
+}) {
   const qs = new URLSearchParams()
   if (params.q?.trim()) qs.set('q', params.q.trim())
   if (params.durum) qs.set('durum', params.durum)
+  if (params.tip) qs.set('tip', params.tip)
 
   let response: Response
   try {
@@ -307,6 +312,8 @@ export type HeroSlide = {
 export type AdminBasvuruListItem = {
   id: string
   basvuruNo?: string
+  basvuruTipi?: string
+  kategori?: string
   ad?: string
   soyad?: string
   tcKimlikNo?: string
@@ -339,4 +346,5 @@ export const CONFIG_LABELS: Record<string, string> = {
   BasvuruBaslangic: 'Başlangıç tarihi',
   BasvuruBitis: 'Bitiş tarihi',
   MinDogumTarihi: 'En erken doğum tarihi',
+  YardimBasvuruAktif: 'Yardım başvurusu açık mı?',
 }

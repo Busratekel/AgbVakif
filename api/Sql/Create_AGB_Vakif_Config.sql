@@ -44,4 +44,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.AGB_Vakif_Config WHERE ConfigKey = N'PopupBasli
 IF NOT EXISTS (SELECT 1 FROM dbo.AGB_Vakif_Config WHERE ConfigKey = N'PopupMetin')
     INSERT INTO dbo.AGB_Vakif_Config (ConfigKey, ConfigValue)
     VALUES (N'PopupMetin', N'');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.AGB_Vakif_Config WHERE ConfigKey = N'YardimBasvuruAktif')
+    INSERT INTO dbo.AGB_Vakif_Config (ConfigKey, ConfigValue)
+    VALUES (N'YardimBasvuruAktif', N'1');
 GO

@@ -9,9 +9,13 @@ public sealed class AgbBasvuru
     [Key]
     public Guid Id { get; set; }
 
-    /// <summary>İnsan okunur başvuru no (ör. AGB-2026-000042). TC ile 1-1 eşleşir.</summary>
+    /// <summary>İnsan okunur başvuru no (ör. AGB-2026-000042).</summary>
     [MaxLength(30)]
     public string? BasvuruNo { get; set; }
+
+    /// <summary>Burs veya Destek (yardım).</summary>
+    [MaxLength(10)]
+    public string BasvuruTipi { get; set; } = "Burs";
 
     [MaxLength(11)]
     public string TcKimlikNo { get; set; } = "";
@@ -52,6 +56,14 @@ public sealed class AgbBasvuru
 
     [MaxLength(120)]
     public string? Statu { get; set; }
+
+    [MaxLength(80)]
+    public string? Kategori { get; set; }
+
+    [MaxLength(40)]
+    public string? TalepTutari { get; set; }
+
+    public string? TalepOzeti { get; set; }
 
     [MaxLength(80)]
     public string? BabaAdi { get; set; }

@@ -1,14 +1,18 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { BASVURU_NAV } from '../config'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { BASVURU_NAV, YARDIM_NAV } from '../config'
 
 export function BasvuruLayout() {
+  const location = useLocation()
+  const isYardim = location.pathname.startsWith('/yardim')
+  const nav = isYardim ? YARDIM_NAV : BASVURU_NAV
+
   return (
     <section className="basvuru-shell">
       <div className="shell basvuru-layout">
         <aside className="basvuru-side" aria-label="Başvuru menüsü">
-          <p className="basvuru-side-title">Başvuru</p>
+          <p className="basvuru-side-title">{isYardim ? 'Yardım başvurusu' : 'Başvuru'}</p>
           <nav className="basvuru-side-nav">
-            {BASVURU_NAV.map((link) => (
+            {nav.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}

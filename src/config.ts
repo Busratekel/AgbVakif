@@ -33,9 +33,32 @@ export const CONTACT = {
     'https://www.google.com/maps/search/?api=1&query=Oru%C3%A7+Reis+Mah.+Giyimkent+Sitesi+Vadi+Cad.+No:3+Esenler+%C4%B0stanbul',
 } as const
 
-export const STATUSES = [
+/** Yardım başvurusu — başvuru sahibi statüsü */
+export const STATUSES_YARDIM = [
+  'Anadolu Güçbirliği Holding çalışanı',
+  'Grup şirketi çalışanı',
+  'Çalışanın çocuğu',
+  'Çalışanın birinci derece yakını',
   'Diğer / Bireysel başvuru',
   'Kurum / STK başvurusu',
+] as const
+
+/** Burs başvurusu — başvuru sahibi statüsü */
+export const STATUSES_BURS = [
+  'Diğer / Bireysel başvuru',
+  'Kurum / STK başvurusu',
+] as const
+
+export const CATEGORIES = [
+  'Eğitim',
+  'Sağlık',
+  'Spor',
+  'Ekonomik / Sosyal destek',
+  'Kültür ve sanat',
+  'Toplumsal kalkınma',
+  'Afet / Acil durum desteği',
+  'Proje / Kurumsal iş birliği',
+  'Diğer',
 ] as const
 
 export const ABOUT = {
@@ -70,6 +93,11 @@ export const BASVURU_NAV = [
   { to: '/basvuru/sss', label: 'Burslar hakkında SSS', end: false },
   { to: '/basvuru/belgeler', label: 'Burs için gerekli belgeler', end: false },
   { to: '/basvuru/form', label: 'Burs başvurusu', end: false },
+] as const
+
+export const YARDIM_NAV = [
+  { to: '/yardim', label: 'Genel bilgilendirme', end: true },
+  { to: '/yardim/form', label: 'Yardım başvurusu', end: false },
 ] as const
 
 export const MEDYA_NAV = [

@@ -12,6 +12,8 @@ import { MedyaLayout } from './components/MedyaLayout'
 import { BasvuruHub } from './pages/BasvuruHub'
 import { BasvuruSss } from './pages/BasvuruSss'
 import { BasvuruForm } from './pages/BasvuruForm'
+import { YardimHub } from './pages/YardimHub'
+import { YardimForm } from './pages/YardimForm'
 import { BasvuruBelgeler } from './pages/BasvuruBelgeler'
 //import { BasvuruIstatistikler } from './pages/BasvuruIstatistikler'
 import { KurumsalHakkinda } from './pages/KurumsalHakkinda'
@@ -87,6 +89,10 @@ export default function App() {
             <Route path="belgeler" element={<BasvuruBelgeler />} />
           </Route>
           <Route path="/basvuru/form" element={<BasvuruForm />} />
+          <Route path="/yardim" element={<BasvuruLayout />}>
+            <Route index element={<YardimHub />} />
+          </Route>
+          <Route path="/yardim/form" element={<YardimForm />} />
           <Route path="/iletisim" element={<Iletisim />} />
           <Route path="/yasal/kvkk" element={<KvkkMetni />} />
           <Route path="/yasal/gizlilik-politikasi" element={<GizlilikPolitikasi />} />

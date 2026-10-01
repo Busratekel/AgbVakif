@@ -5,6 +5,7 @@ BEGIN
     (
         Id              UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_AGB_Vakif_Basvuru PRIMARY KEY,
         BasvuruNo       NVARCHAR(30)     NULL,
+        BasvuruTipi     NVARCHAR(10)     NOT NULL CONSTRAINT DF_AGB_BasvuruTipi DEFAULT(N'Burs'),
         TcKimlikNo      NVARCHAR(11)     NOT NULL,
         Telefon         NVARCHAR(20)     NOT NULL,
         Ad              NVARCHAR(80)     NULL,
@@ -19,6 +20,9 @@ BEGIN
         Ilce            NVARCHAR(60)     NULL,
         AcikAdres       NVARCHAR(MAX)    NULL,
         Statu           NVARCHAR(120)    NULL,
+        Kategori        NVARCHAR(80)     NULL,
+        TalepTutari     NVARCHAR(40)     NULL,
+        TalepOzeti      NVARCHAR(MAX)    NULL,
         BabaAdi         NVARCHAR(80)     NULL,
         BabaSagMi       NVARCHAR(10)     NULL,
         BabaMeslegi     NVARCHAR(80)     NULL,
@@ -65,7 +69,7 @@ BEGIN
         SonGonderimTarihi DATETIME2      NULL
     );
 
-    CREATE UNIQUE INDEX IX_AGB_Vakif_Basvuru_Tc ON dbo.AGB_Vakif_Basvuru(TcKimlikNo);
+    CREATE UNIQUE INDEX IX_AGB_Vakif_Basvuru_Tc_Tip ON dbo.AGB_Vakif_Basvuru(TcKimlikNo, BasvuruTipi);
 END
 GO
 
@@ -191,15 +195,23 @@ BEGIN
 END
 GO
 
--- Kullanılmayan eski kolonları kaldır
 IF OBJECT_ID(N'dbo.AGB_Vakif_Basvuru', N'U') IS NOT NULL
 BEGIN
-    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'Kategori') IS NOT NULL
-        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN Kategori;
-    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepTutari') IS NOT NULL
-        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN TalepTutari;
-    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepOzeti') IS NOT NULL
-        ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN TalepOzeti;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BasvuruTipi') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD BasvuruTipi NVARCHAR(10) NOT NULL
+            CONSTRAINT DF_AGB_BasvuruTipi_Mig DEFAULT(N'Burs') WITH VALUES;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'Kategori') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD Kategori NVARCHAR(80) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepTutari') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD TalepTutari NVARCHAR(40) NULL;
+    IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'TalepOzeti') IS NULL
+        ALTER TABLE dbo.AGB_Vakif_Basvuru ADD TalepOzeti NVARCHAR(MAX) NULL;
+
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_AGB_Vakif_Basvuru_Tc' AND object_id = OBJECT_ID(N'dbo.AGB_Vakif_Basvuru'))
+        DROP INDEX IX_AGB_Vakif_Basvuru_Tc ON dbo.AGB_Vakif_Basvuru;
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_AGB_Vakif_Basvuru_Tc_Tip' AND object_id = OBJECT_ID(N'dbo.AGB_Vakif_Basvuru'))
+        CREATE UNIQUE INDEX IX_AGB_Vakif_Basvuru_Tc_Tip ON dbo.AGB_Vakif_Basvuru(TcKimlikNo, BasvuruTipi);
+
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'BabaGelirBelgeAdi') IS NOT NULL
         ALTER TABLE dbo.AGB_Vakif_Basvuru DROP COLUMN BabaGelirBelgeAdi;
     IF COL_LENGTH('dbo.AGB_Vakif_Basvuru', 'DigerAileBilgi') IS NOT NULL

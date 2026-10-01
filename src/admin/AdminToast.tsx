@@ -38,7 +38,12 @@ export function AdminToastProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<ToastApi>(
     () => ({
-      success: (message) => push('success', message),
+      success: (message) => {
+        push('success', message)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+        document.body.scrollTo({ top: 0, behavior: 'smooth' })
+      },
       error: (message) => push('error', message),
       info: (message) => push('info', message),
     }),

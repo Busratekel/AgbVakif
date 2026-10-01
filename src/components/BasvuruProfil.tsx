@@ -42,11 +42,13 @@ export function BasvuruProfil({
   data,
   accessToken,
   donemAcik,
+  showBelgeler = true,
   onEdit,
 }: {
   data: BasvuruData
   accessToken: string
   donemAcik: boolean
+  showBelgeler?: boolean
   onEdit: () => void
 }) {
   const [belgeler, setBelgeler] = useState<Belge[]>([])
@@ -65,6 +67,7 @@ export function BasvuruProfil({
   const toplamGerekli = requiredCodes.length
 
   useEffect(() => {
+    if (!showBelgeler) return
     let cancelled = false
     ;(async () => {
       try {
@@ -80,7 +83,7 @@ export function BasvuruProfil({
       }
     })()
     return () => { cancelled = true }
-  }, [accessToken])
+  }, [accessToken, showBelgeler])
 
   useEffect(() => () => {
     if (viewer) URL.revokeObjectURL(viewer.url)
@@ -180,27 +183,41 @@ export function BasvuruProfil({
         <div><dt>Ad soyad</dt><dd>{data.ad} {data.soyad}</dd></div>
         <div><dt>E-posta</dt><dd>{data.eposta || '—'}</dd></div>
         <div><dt>Telefon</dt><dd>{data.telefonMasked || '—'}</dd></div>
-        <div><dt>Üniversite</dt><dd>{data.universite === 'Diğer' ? data.universiteAdi : data.universite || '—'}</dd></div>
-        <div><dt>Fakülte</dt><dd>{data.fakulte === 'Diğer' ? data.fakulteAdi : data.fakulte || '—'}</dd></div>
-        <div><dt>Bölüm</dt><dd>{data.bolum === 'Diğer' ? data.bolumAdi : data.bolum || '—'}</dd></div>
-        <div><dt>Sınıf</dt><dd>{data.sinif || '—'}</dd></div>
+        {showBelgeler ? (
+          <>
+            <div><dt>Üniversite</dt><dd>{data.universite === 'Diğer' ? data.universiteAdi : data.universite || '—'}</dd></div>
+            <div><dt>Fakülte</dt><dd>{data.fakulte === 'Diğer' ? data.fakulteAdi : data.fakulte || '—'}</dd></div>
+            <div><dt>Bölüm</dt><dd>{data.bolum === 'Diğer' ? data.bolumAdi : data.bolum || '—'}</dd></div>
+            <div><dt>Sınıf</dt><dd>{data.sinif || '—'}</dd></div>
+          </>
+        ) : (
+          <>
+            <div><dt>Kategori</dt><dd>{data.kategori || '—'}</dd></div>
+            <div><dt>Talep tutarı</dt><dd>{data.talepTutari ? `${data.talepTutari} ₺` : '—'}</dd></div>
+            <div><dt>Talep özeti</dt><dd>{data.talepOzeti || '—'}</dd></div>
+          </>
+        )}
       </dl>
 
       {canEdit ? (
-        <div className="wizard-actions">
-          <button type="button" className="btn" onClick={onEdit}>Bilgileri güncelle</button>
+        <div className="profil-actions">
+          <button type="button" className="btn btn-small" onClick={onEdit}>
+            Bilgileri güncelle
+          </button>
         </div>
       ) : (
         <p className="wizard-lead">
           {durum === 'Reddedildi'
             ? 'Bu başvuru reddedildiği için bilgi ve belge değiştirilemez.'
             : durum === 'Onaylandi'
-              ? 'Başvurunuz onaylandı. Bilgiler değiştirilemez; aşağıdaki belgeleri yüklemeniz yeterlidir.'
+              ? showBelgeler
+                ? 'Başvurunuz onaylandı. Bilgiler değiştirilemez; aşağıdaki belgeleri yüklemeniz yeterlidir.'
+                : 'Başvurunuz onaylandı. Bilgiler değiştirilemez.'
               : 'Başvuru dönemi kapalı olduğu için bilgiler güncellenemez.'}
         </p>
       )}
 
-      {canUpload ? (
+      {showBelgeler && canUpload ? (
         <section className="belge-panel">
           <div className="belge-panel-head">
             <div>

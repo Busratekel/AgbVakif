@@ -75,7 +75,7 @@ export function BasvuruHub() {
 
       <div className="basvuru-actions">
         <Link className="btn" to="/basvuru/form">
-          Başvuru için tıklayınız
+          Burs başvurusu için tıklayınız
         </Link>
         <Link className="btn btn-ghost-dark" to="/basvuru/belgeler">
           Gerekli belgeler

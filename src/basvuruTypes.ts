@@ -1,9 +1,12 @@
+export type BasvuruKind = 'burs' | 'yardim'
+
 export type WizardStep =
   | 'kvkk'
   | 'kimlik'
   | 'sms'
   | 'bilgiler'
   | 'detay'
+  | 'destek'
   | 'beyanlar'
   | 'ozet'
   | 'sonuc'
@@ -19,6 +22,25 @@ export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
   { id: 'ozet', label: 'Özet' },
   { id: 'sonuc', label: 'Sonuç' },
 ]
+
+export const WIZARD_STEPS_YARDIM: { id: WizardStep; label: string }[] = [
+  { id: 'kvkk', label: 'KVKK Onayı' },
+  { id: 'kimlik', label: 'Kimlik' },
+  { id: 'sms', label: 'SMS Onayı' },
+  { id: 'bilgiler', label: 'İletişim Bilgileri' },
+  { id: 'destek', label: 'Destek Talebi' },
+  { id: 'beyanlar', label: 'Beyanlar' },
+  { id: 'ozet', label: 'Özet' },
+  { id: 'sonuc', label: 'Sonuç' },
+]
+
+export function wizardStepsFor(kind: BasvuruKind) {
+  return kind === 'yardim' ? WIZARD_STEPS_YARDIM : WIZARD_STEPS
+}
+
+export function apiBasvuruTipi(kind: BasvuruKind) {
+  return kind === 'yardim' ? 'Destek' : 'Burs'
+}
 
 export type BasvuruData = {
   id?: string
@@ -37,6 +59,10 @@ export type BasvuruData = {
   ilce: string
   acikAdres: string
   statu: string
+  basvuruTipi?: string
+  kategori: string
+  talepTutari: string
+  talepOzeti: string
   // Aile
   babaAdi: string
   babaSagMi: string
@@ -101,6 +127,9 @@ export const emptyBasvuru = (): BasvuruData => ({
   ilce: '',
   acikAdres: '',
   statu: '',
+  kategori: '',
+  talepTutari: '',
+  talepOzeti: '',
   babaAdi: '',
   babaSagMi: '',
   babaMeslegi: '',

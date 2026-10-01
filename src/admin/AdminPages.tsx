@@ -151,6 +151,7 @@ export function AdminBasvuruList() {
   const toast = useAdminToast()
   const [q, setQ] = useState('')
   const [durum, setDurum] = useState('')
+  const [tip, setTip] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<import('./adminApi').AdminBasvuruListItem[]>([])
@@ -159,7 +160,10 @@ export function AdminBasvuruList() {
   const [error, setError] = useState('')
   const pageSize = 25
 
-  async function load(nextPage = page) {
+  async function load(nextPage = 1, filters?: { q?: string; durum?: string; tip?: string }) {
+    const fq = filters?.q ?? q
+    const fd = filters?.durum ?? durum
+    const ft = filters?.tip ?? tip
     setLoading(true)
     setError('')
     try {
@@ -167,8 +171,9 @@ export function AdminBasvuruList() {
         page: String(nextPage),
         pageSize: String(pageSize),
       })
-      if (q.trim()) params.set('q', q.trim())
-      if (durum) params.set('durum', durum)
+      if (fq.trim()) params.set('q', fq.trim())
+      if (fd) params.set('durum', fd)
+      if (ft) params.set('tip', ft)
       const json = await adminFetch(`/basvurular?${params}`)
       setItems(json.items ?? [])
       setTotal(json.total ?? 0)
@@ -185,7 +190,7 @@ export function AdminBasvuruList() {
   async function exportExcel() {
     setExporting(true)
     try {
-      await adminDownloadBasvuruExcel({ q, durum })
+      await adminDownloadBasvuruExcel({ q, durum, tip })
       toast.success('Excel indirildi.')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Excel indirilemedi'
@@ -196,9 +201,13 @@ export function AdminBasvuruList() {
   }
 
   useEffect(() => {
-    void load(1)
+    const delay = q.trim() ? 350 : 0
+    const timer = window.setTimeout(() => {
+      void load(1, { q, durum, tip })
+    }, delay)
+    return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [q, durum, tip])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -219,26 +228,24 @@ export function AdminBasvuruList() {
         </div>
       </div>
 
-      <form
-        className="admin-filters"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void load(1)
-        }}
-      >
+      <div className="admin-filters">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Ad, TC, e-posta, üniversite…"
         />
+        <select value={tip} onChange={(e) => setTip(e.target.value)}>
+          <option value="">Tüm tipler</option>
+          <option value="Burs">Burs</option>
+          <option value="Destek">Yardım</option>
+        </select>
         <select value={durum} onChange={(e) => setDurum(e.target.value)}>
           <option value="">Tüm durumlar</option>
           {(['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'] as const).map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
-        <button type="submit" className="btn" disabled={loading}>Filtrele</button>
-      </form>
+      </div>
 
       {error ? (
         <div className="form-alert is-error"><p>{error}</p></div>
@@ -249,9 +256,10 @@ export function AdminBasvuruList() {
           <thead>
             <tr>
               <th>Başvuru no</th>
+              <th>Tip</th>
               <th>Ad Soyad</th>
               <th>T.C.</th>
-              <th>Üniversite</th>
+              <th>Üniversite / Kategori</th>
               <th>Durum</th>
               <th>Gönderim</th>
               <th></th>
@@ -259,16 +267,17 @@ export function AdminBasvuruList() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}>Yükleniyor…</td></tr>
+              <tr><td colSpan={8}>Yükleniyor…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={7}>Kayıt bulunamadı.</td></tr>
+              <tr><td colSpan={8}>Kayıt bulunamadı.</td></tr>
             ) : (
               items.map((row) => (
                 <tr key={row.id}>
                   <td>{row.basvuruNo || '—'}</td>
+                  <td>{row.basvuruTipi === 'Destek' ? 'Yardım' : 'Burs'}</td>
                   <td>{row.ad} {row.soyad}</td>
                   <td>{row.tcKimlikNo}</td>
-                  <td>{row.universite || '—'}</td>
+                  <td>{row.basvuruTipi === 'Destek' ? (row.kategori || '—') : (row.universite || '—')}</td>
                   <td><span className={`admin-pill durum-${(row.durum || '').toLowerCase()}`}>{row.durum}</span></td>
                   <td>{formatDate(row.sonGonderimTarihi || row.guncellemeTarihi)}</td>
                   <td><Link to={`/admin/basvuru/${row.id}`}>Detay</Link></td>
@@ -540,6 +549,10 @@ export function AdminBasvuruDetail() {
           <h3>Kimlik / iletişim</h3>
           <dl className="admin-kv-list">
             <Row label="Başvuru no" value={s('basvuruNo')} />
+            <Row
+              label="Başvuru tipi"
+              value={s('basvuruTipi') === 'Destek' ? 'Yardım / destek' : 'Burs'}
+            />
             <Row label="T.C. kimlik no" value={s('tcKimlikNo')} />
             <Row label="Telefon" value={s('telefon')} />
             <Row label="Doğum tarihi" value={s('dogumTarihi')} />
@@ -554,6 +567,19 @@ export function AdminBasvuruDetail() {
           </dl>
         </section>
 
+        {s('basvuruTipi') === 'Destek' ? (
+          <section className="admin-detail-block">
+            <h3>Destek talebi</h3>
+            <dl className="admin-kv-list">
+              <Row label="Kategori" value={s('kategori')} />
+              <Row label="Talep tutarı" value={data.talepTutari ? `${s('talepTutari')} ₺` : '—'} />
+              <Row label="Talep özeti" value={s('talepOzeti')} wide />
+            </dl>
+          </section>
+        ) : null}
+
+        {s('basvuruTipi') !== 'Destek' ? (
+        <>
         <section className="admin-detail-block">
           <h3>Aile</h3>
           <dl className="admin-kv-list">
@@ -614,6 +640,8 @@ export function AdminBasvuruDetail() {
             ) : null}
           </dl>
         </section>
+        </>
+        ) : null}
 
         <section className="admin-detail-block">
           <h3>Beyanlar</h3>
@@ -637,6 +665,21 @@ export function AdminBasvuruDetail() {
       </div>
     </section>
   )
+}
+
+/** API’deki ISO benzeri değeri datetime-local input’a çevirir. */
+function toDatetimeLocal(value?: string) {
+  const v = (value ?? '').trim()
+  if (!v) return ''
+  const match = v.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/)
+  return match ? `${match[1]}T${match[2]}` : ''
+}
+
+/** datetime-local değerini API’nin beklediği formata çevirir. */
+function fromDatetimeLocal(value: string) {
+  const v = value.trim()
+  if (!v) return ''
+  return v.length === 16 ? `${v}:00` : v
 }
 
 export function AdminConfig() {
@@ -770,16 +813,22 @@ export function AdminConfig() {
             <div className="form-grid">
               <Field label="Bant başlığı" fieldKey="BasvuruBaslik" />
               <Field label="Bant notu (isteğe bağlı)" fieldKey="BasvuruBaslikNot" multiline />
-              <Field
-                label="Başlangıç"
-                fieldKey="BasvuruBaslangic"
-                hint="örn. 2026-09-07T09:00:00"
-              />
-              <Field
-                label="Bitiş"
-                fieldKey="BasvuruBitis"
-                hint="örn. 2026-09-30T17:00:00"
-              />
+              <label>
+                <span>Başlangıç</span>
+                <input
+                  type="datetime-local"
+                  value={toDatetimeLocal(items.BasvuruBaslangic)}
+                  onChange={(e) => setField('BasvuruBaslangic', fromDatetimeLocal(e.target.value))}
+                />
+              </label>
+              <label>
+                <span>Bitiş</span>
+                <input
+                  type="datetime-local"
+                  value={toDatetimeLocal(items.BasvuruBitis)}
+                  onChange={(e) => setField('BasvuruBitis', fromDatetimeLocal(e.target.value))}
+                />
+              </label>
               <label>
                 <span>En erken doğum tarihi</span>
                 <input
@@ -802,6 +851,31 @@ export function AdminConfig() {
             <div className="form-grid">
               <Field label="Form başlığı" fieldKey="BasvuruFormBaslik" />
               <Field label="Form açıklama notu" fieldKey="BasvuruFormBaslikNot" multiline />
+            </div>
+          </section>
+          <section className="admin-settings-card">
+            <header className="admin-settings-head">
+              <h2>Yardım başvurusu</h2>
+              <p>Burs döneminden bağımsız; panelden açıp kapatabilirsiniz</p>
+            </header>
+            <div className="form-grid">
+              <div className="full admin-toggle-row">
+                <div className="admin-toggle-copy">
+                  <strong>Yardım / destek başvuruları</strong>
+                  <span>Kapalıyken yeni yardım başvurusu alınmaz</span>
+                </div>
+                <label className="admin-switch">
+                  <input
+                    type="checkbox"
+                    checked={isPopupOn(items.YardimBasvuruAktif ?? '1')}
+                    onChange={(e) => setField('YardimBasvuruAktif', e.target.checked ? '1' : '0')}
+                  />
+                  <span className="admin-switch-track" aria-hidden="true" />
+                  <span className="admin-switch-text">
+                    {isPopupOn(items.YardimBasvuruAktif ?? '1') ? 'Açık' : 'Kapalı'}
+                  </span>
+                </label>
+              </div>
             </div>
           </section>
 

@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApplicationWizard } from '../components/ApplicationWizard'
 
-export function BasvuruForm() {
+export function YardimForm() {
   const [searchParams] = useSearchParams()
   const profilGiris = searchParams.get('giris') === '1'
 
@@ -12,11 +12,11 @@ export function BasvuruForm() {
           {profilGiris ? (
             <Link to="/">← Ana sayfaya dön</Link>
           ) : (
-            <Link to="/basvuru">← Başvuru bilgilendirmesine dön</Link>
+            <Link to="/yardim">← Yardım başvurusu bilgilendirmesine dön</Link>
           )}
         </p>
       </div>
-      <ApplicationWizard kind="burs" />
+      <ApplicationWizard kind="yardim" />
     </section>
   )
 }

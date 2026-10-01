@@ -8,12 +8,12 @@ public sealed class OtpSessionService
     private readonly ConcurrentDictionary<string, OtpSession> _otp = new();
     private readonly ConcurrentDictionary<string, AccessSession> _access = new();
 
-    public OtpSession CreateOtp(string tc, string telefon)
+    public OtpSession CreateOtp(string tc, string telefon, string basvuruTipi)
     {
         Cleanup();
         var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var sessionId = Guid.NewGuid().ToString("N");
-        var entry = new OtpSession(sessionId, tc, telefon, code, DateTimeOffset.UtcNow.AddMinutes(3));
+        var entry = new OtpSession(sessionId, tc, telefon, basvuruTipi, code, DateTimeOffset.UtcNow.AddMinutes(3));
         _otp[sessionId] = entry;
         return entry;
     }
@@ -33,7 +33,12 @@ public sealed class OtpSessionService
         if (!string.Equals(otp.Code, code.Trim(), StringComparison.Ordinal)) return false;
 
         var token = Guid.NewGuid().ToString("N");
-        access = new AccessSession(token, otp.TcKimlikNo, otp.Telefon, DateTimeOffset.UtcNow.AddHours(2));
+        access = new AccessSession(
+            token,
+            otp.TcKimlikNo,
+            otp.Telefon,
+            otp.BasvuruTipi,
+            DateTimeOffset.UtcNow.AddHours(2));
         _access[token] = access;
         return true;
     }
@@ -64,6 +69,7 @@ public sealed record OtpSession(
     string SessionId,
     string TcKimlikNo,
     string Telefon,
+    string BasvuruTipi,
     string Code,
     DateTimeOffset ExpiresAt);
 
@@ -71,4 +77,5 @@ public sealed record AccessSession(
     string Token,
     string TcKimlikNo,
     string Telefon,
+    string BasvuruTipi,
     DateTimeOffset ExpiresAt);
