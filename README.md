@@ -74,7 +74,7 @@ API açılışında `Create_AGB_Vakif_Config.sql` çalışır (tablo + yoksa see
 
 ```json
 "Storage": {
-  "BelgeRootPath": "\\\\10.100.3.126\\bilgi_teknolojileri\\YAZILIM_UYGULAMA\\HIZMETE_OZEL"
+  "BelgeRootPath": "\\\\..\\.."
 }
 ```
 
