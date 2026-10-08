@@ -38,7 +38,8 @@ public sealed class OtpSessionService
             otp.TcKimlikNo,
             otp.Telefon,
             otp.BasvuruTipi,
-            DateTimeOffset.UtcNow.AddHours(2));
+            DateTimeOffset.UtcNow.AddHours(2),
+            SelectedBasvuruId: null);
         _access[token] = access;
         return true;
     }
@@ -48,6 +49,26 @@ public sealed class OtpSessionService
         Cleanup();
         if (string.IsNullOrWhiteSpace(token)) return null;
         return _access.TryGetValue(token, out var s) && s.ExpiresAt >= DateTimeOffset.UtcNow ? s : null;
+    }
+
+    public AccessSession? TrySelectBasvuru(string? token, Guid basvuruId)
+    {
+        Cleanup();
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        if (!_access.TryGetValue(token, out var s) || s.ExpiresAt < DateTimeOffset.UtcNow) return null;
+        var updated = s with { SelectedBasvuruId = basvuruId };
+        _access[token] = updated;
+        return updated;
+    }
+
+    public AccessSession? ClearSelectedBasvuru(string? token)
+    {
+        Cleanup();
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        if (!_access.TryGetValue(token, out var s) || s.ExpiresAt < DateTimeOffset.UtcNow) return null;
+        var updated = s with { SelectedBasvuruId = null };
+        _access[token] = updated;
+        return updated;
     }
 
     private void Cleanup()
@@ -78,4 +99,5 @@ public sealed record AccessSession(
     string TcKimlikNo,
     string Telefon,
     string BasvuruTipi,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    Guid? SelectedBasvuruId = null);

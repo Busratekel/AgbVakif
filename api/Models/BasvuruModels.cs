@@ -15,6 +15,15 @@ public sealed class KimlikRequest
 
     /// <summary>Burs (varsayılan) veya Destek.</summary>
     public string? BasvuruTipi { get; set; }
+
+    /// <summary>Başvurum girişi: yeni taslak açma; OTP sonrası liste.</summary>
+    public bool SadeceGiris { get; set; }
+}
+
+public sealed class BasvuruSecRequest
+{
+    [Required]
+    public Guid BasvuruId { get; set; }
 }
 
 public sealed class SmsDogrulaRequest
@@ -188,6 +197,7 @@ public sealed class BasvuruDto
     public Guid Id { get; set; }
     public string? BasvuruNo { get; set; }
     public string BasvuruTipi { get; set; } = "Burs";
+    public int DonemYili { get; set; }
     public string TcKimlikNoMasked { get; set; } = "";
     public string TelefonMasked { get; set; } = "";
     public string? Ad { get; set; }

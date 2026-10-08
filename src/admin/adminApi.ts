@@ -313,6 +313,7 @@ export type AdminBasvuruListItem = {
   id: string
   basvuruNo?: string
   basvuruTipi?: string
+  donemYili?: number
   kategori?: string
   ad?: string
   soyad?: string

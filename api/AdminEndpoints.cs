@@ -158,6 +158,7 @@ public static class AdminEndpoints
                 x.Id,
                 x.BasvuruNo,
                 basvuruTipi = x.BasvuruTipi,
+                donemYili = x.DonemYili,
                 x.Ad,
                 x.Soyad,
                 tcKimlikNo = x.TcKimlikNo,
@@ -201,7 +202,7 @@ public static class AdminEndpoints
 
         string[] headers =
         [
-            "Basvuru No", "Basvuru Tipi", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
+            "Basvuru No", "Basvuru Tipi", "Donem Yili", "Durum", "T.C. Kimlik No", "Ad", "Soyad", "Dogum Tarihi", "Dogum Yeri", "Medeni Durum",
             "Telefon", "E-posta", "Yakin Telefon", "Yakin Kim", "Il", "Ilce", "Acik Adres", "Statu",
             "Kategori", "Talep Tutari", "Talep Ozeti",
             "Baba Adi", "Baba Sag Mi", "Baba Meslegi", "Baba Aylik Gelir",
@@ -230,7 +231,7 @@ public static class AdminEndpoints
             var r = i + 2;
             object?[] values =
             [
-                e.BasvuruNo, e.BasvuruTipi, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
+                e.BasvuruNo, e.BasvuruTipi, e.DonemYili, e.Durum, e.TcKimlikNo, e.Ad, e.Soyad,
                 e.DogumTarihi?.ToString("dd.MM.yyyy"), e.DogumYeri, e.MedeniDurum,
                 e.Telefon, e.Eposta, e.YakinTelefon, e.YakinKim, e.Il, e.Ilce, e.AcikAdres, e.Statu,
                 e.Kategori, e.TalepTutari, e.TalepOzeti,
@@ -730,6 +731,7 @@ public static class AdminEndpoints
         e.Id,
         e.BasvuruNo,
         basvuruTipi = e.BasvuruTipi,
+        donemYili = e.DonemYili,
         tcKimlikNo = e.TcKimlikNo,
         telefon = e.Telefon,
         e.Ad,

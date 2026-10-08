@@ -23,14 +23,14 @@ export const HERO_BELOW_MESSAGE = {
 } as const
 
 export const CONTACT = {
-  email: 'info@anadolugucbirligi.com.tr',
+  email: 'agbvakfi@anadolugucbirligi.com.tr',
   phone: '+90 212 438 25 00',
   addressLines: [
-    'Oruç Reis Mah. Giyimkent Sitesi Vadi Cad. No:3',
-    'Esenler / İSTANBUL',
+    'Organize Sanayi Bölgesi 16. Cd. No: 2B',
+    'Melikgazi / KAYSERİ',
   ],
   mapUrl:
-    'https://www.google.com/maps/search/?api=1&query=Oru%C3%A7+Reis+Mah.+Giyimkent+Sitesi+Vadi+Cad.+No:3+Esenler+%C4%B0stanbul',
+    'https://www.google.com/maps/search/?api=1&query=Organize+Sanayi+B%C3%B6lgesi+16.+Cd.+No:+2B+Melikgazi+Kayseri',
 } as const
 
 /** Yardım başvurusu — başvuru sahibi statüsü */
@@ -262,7 +262,7 @@ export const BASVURU_FAQ = [
   },
   {
     q: 'Birden fazla başvuru yapabilir miyim?',
-    a: 'Aynı TC kimlik numarası ile sistemde tek başvuru kaydı tutulur. Dönem içinde güncelleme veya yeniden gönderim kuralları form akışında belirtilir.',
+    a: 'Aynı TC kimlik numarası ile her takvim yılında (burs / yardım tipine göre) bir başvuru kaydı tutulur. Yeni yılın başvuru dönemi açıldığında aynı TC ile yeniden başvurabilirsiniz; önceki yılların kayıtları geçmiş olarak saklanır.',
   },
   {
     q: 'Sonuç nasıl öğrenilir?',

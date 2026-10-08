@@ -9,7 +9,8 @@ type Belge = {
   yuklemeTarihi: string
 }
 
-const MAX_BYTES = 8 * 1024 * 1024
+const MAX_BYTES = 5 * 1024 * 1024
+const MAX_FILES_PER_KOD = 5
 
 const DURUM_ETIKET: Record<string, string> = {
   Gonderildi: 'Gönderildi',
@@ -38,18 +39,31 @@ async function readError(response: Response) {
   return `Belge açılamadı (${response.status})`
 }
 
+function mapBelge(raw: Record<string, unknown> | Belge): Belge | null {
+  const id = String(raw.id ?? (raw as { Id?: unknown }).Id ?? '')
+  const belgeKod = String(raw.belgeKod ?? (raw as { BelgeKod?: unknown }).BelgeKod ?? '')
+  const dosyaAdi = String(raw.dosyaAdi ?? (raw as { DosyaAdi?: unknown }).DosyaAdi ?? '')
+  const yuklemeTarihi = String(
+    raw.yuklemeTarihi ?? (raw as { YuklemeTarihi?: unknown }).YuklemeTarihi ?? '',
+  )
+  if (!id || !belgeKod) return null
+  return { id, belgeKod, dosyaAdi, yuklemeTarihi }
+}
+
 export function BasvuruProfil({
   data,
   accessToken,
   donemAcik,
   showBelgeler = true,
   onEdit,
+  onBackToList,
 }: {
   data: BasvuruData
   accessToken: string
   donemAcik: boolean
   showBelgeler?: boolean
   onEdit: () => void
+  onBackToList?: () => void
 }) {
   const [belgeler, setBelgeler] = useState<Belge[]>([])
   const [error, setError] = useState('')
@@ -58,13 +72,34 @@ export function BasvuruProfil({
   const [viewer, setViewer] = useState<{ url: string; title: string; image: boolean } | null>(null)
 
   const durum = data.durum ?? ''
+  const guncelYil = new Date().getFullYear()
+  const guncelDonemKaydi = data.donemYili === guncelYil
   const kilitli = durum === 'Onaylandi' || durum === 'Reddedildi'
-  const canEdit = donemAcik && !kilitli
-  const canUpload = durum === 'Onaylandi'
+  const canEdit = donemAcik && !kilitli && guncelDonemKaydi
+  const onayli = durum === 'Onaylandi'
+  const canUpload = onayli && donemAcik && guncelDonemKaydi
+  // Belge paneli yalnızca bu yılın onaylı kaydında; eski dönem salt okunur profil
+  const showBelgePanel = showBelgeler && onayli && guncelDonemKaydi
 
   const requiredCodes = BASVURU_BELGELER.flatMap((item) => rowsOf(item))
   const yuklenenSayisi = requiredCodes.filter((kod) => belgeler.some((b) => b.belgeKod === kod)).length
   const toplamGerekli = requiredCodes.length
+
+  async function reloadBelgeler() {
+    const response = await fetch(`${FORM_API_URL}/basvuru/me/belgeler`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+    })
+    const json = await response.json().catch(() => ({}))
+    if (!response.ok || !json.success) {
+      throw new Error(json.message || 'Belgeler yüklenemedi.')
+    }
+    const items = Array.isArray(json.items) ? json.items : []
+    const mapped = items
+      .map((x: Record<string, unknown>) => mapBelge(x))
+      .filter((x: Belge | null): x is Belge => x != null)
+    setBelgeler(mapped)
+    return mapped
+  }
 
   useEffect(() => {
     if (!showBelgeler) return
@@ -74,10 +109,18 @@ export function BasvuruProfil({
         const response = await fetch(`${FORM_API_URL}/basvuru/me/belgeler`, {
           headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
         })
-        const json = await response.json()
-        if (!cancelled && response.ok && json.success) {
-          setBelgeler(json.items ?? [])
+        const json = await response.json().catch(() => ({}))
+        if (cancelled) return
+        if (!response.ok || !json.success) {
+          setError('Belgeler yüklenemedi.')
+          return
         }
+        const items = Array.isArray(json.items) ? json.items : []
+        setBelgeler(
+          items
+            .map((x: Record<string, unknown>) => mapBelge(x))
+            .filter((x: Belge | null): x is Belge => x != null),
+        )
       } catch {
         if (!cancelled) setError('Belgeler yüklenemedi.')
       }
@@ -89,24 +132,40 @@ export function BasvuruProfil({
     if (viewer) URL.revokeObjectURL(viewer.url)
   }, [viewer])
 
-  function findBelge(kod: string) {
-    return belgeler.find((b) => b.belgeKod === kod)
+  function findBelgeler(kod: string) {
+    return belgeler.filter((b) => b.belgeKod === kod)
   }
 
-  async function upload(kod: string, file: File) {
+  async function upload(kod: string, files: File[]) {
     setError('')
     setOkMsg('')
 
-    if (file.size > MAX_BYTES) {
-      setError('Dosya en fazla 8 MB olabilir.')
+    if (files.length === 0) return
+
+    for (const file of files) {
+      if (file.size > MAX_BYTES) {
+        setError(`“${file.name}” en fazla 5 MB olabilir.`)
+        return
+      }
+    }
+
+    const mevcut = findBelgeler(kod)
+    const kalan = MAX_FILES_PER_KOD - mevcut.length
+    if (kalan <= 0) {
+      setError(`Bu belge için en fazla ${MAX_FILES_PER_KOD} dosya yükleyebilirsiniz.`)
       return
     }
+
+    const toUpload = files.slice(0, kalan)
+    const truncated = files.length > kalan
 
     setBusy(kod)
     try {
       const body = new FormData()
       body.append('belgeKod', kod)
-      body.append('dosya', file)
+      for (const file of toUpload) {
+        body.append('dosya', file, file.name)
+      }
       const response = await fetch(`${FORM_API_URL}/basvuru/me/belgeler`, {
         method: 'POST',
         headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -116,9 +175,20 @@ export function BasvuruProfil({
       if (!response.ok || !json.success) {
         throw new Error(json.message || `Belge kaydedilemedi (${response.status})`)
       }
-      setBelgeler((prev) => [...prev.filter((b) => b.belgeKod !== kod), json.item])
-      setOkMsg('Belge yüklendi.')
+      await reloadBelgeler()
+      const savedCount = Array.isArray(json.items) ? json.items.length : toUpload.length
+      if (truncated || json.truncated) {
+        setError(`En fazla ${MAX_FILES_PER_KOD} dosya yüklenebilir; ${savedCount} dosya eklendi.`)
+      }
+      setOkMsg(savedCount === 1
+        ? 'Belge yüklendi. İsterseniz aynı satırdan daha fazla ekleyebilirsiniz.'
+        : `${savedCount} belge yüklendi.`)
     } catch (e) {
+      try {
+        await reloadBelgeler()
+      } catch {
+        /* ignore */
+      }
       setError(e instanceof Error ? e.message : 'Belge kaydedilemedi')
     } finally {
       setBusy('')
@@ -138,7 +208,7 @@ export function BasvuruProfil({
       if (!response.ok || !json.success) {
         throw new Error(json.message || 'Belge silinemedi')
       }
-      setBelgeler((prev) => prev.filter((b) => b.id !== belge.id))
+      await reloadBelgeler()
       setOkMsg('Belge silindi.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Belge silinemedi')
@@ -167,37 +237,113 @@ export function BasvuruProfil({
     }
   }
 
+  const tipLabel = data.basvuruTipi === 'Destek' ? 'Yardım' : 'Burs'
+  const universiteLabel = data.universite === 'Diğer' ? data.universiteAdi : data.universite
+  const fakulteLabel = data.fakulte === 'Diğer' ? data.fakulteAdi : data.fakulte
+  const bolumLabel = data.bolum === 'Diğer' ? data.bolumAdi : data.bolum
+
   return (
     <>
-      <div className="wizard-title-row">
-        <h2>Başvurum</h2>
-        <span className={`admin-pill durum-${durum.toLowerCase()}`}>
-          {DURUM_ETIKET[durum] ?? durum}
-        </span>
-      </div>
-      {data.basvuruNo ? (
-        <p className="wizard-lead">Başvuru no: <strong>{data.basvuruNo}</strong></p>
+      {onBackToList ? (
+        <p className="profil-back">
+          <button type="button" className="linkish" onClick={onBackToList}>
+            ← Tüm başvurularıma dön
+          </button>
+        </p>
       ) : null}
 
-      <dl className="profil-ozet">
-        <div><dt>Ad soyad</dt><dd>{data.ad} {data.soyad}</dd></div>
-        <div><dt>E-posta</dt><dd>{data.eposta || '—'}</dd></div>
-        <div><dt>Telefon</dt><dd>{data.telefonMasked || '—'}</dd></div>
+      <header className="profil-head">
+        <div className="wizard-title-row">
+          <h2>Başvurum</h2>
+          <span className={`admin-pill durum-${durum.toLowerCase()}`}>
+            {DURUM_ETIKET[durum] ?? durum}
+          </span>
+        </div>
+        {(data.basvuruNo || data.donemYili || data.basvuruTipi) ? (
+          <ul className="profil-meta">
+            {data.basvuruTipi ? (
+              <li>
+                <span className="profil-meta-label">Tip</span>
+                <strong>{tipLabel}</strong>
+              </li>
+            ) : null}
+            {data.basvuruNo ? (
+              <li>
+                <span className="profil-meta-label">Başvuru no</span>
+                <strong>{data.basvuruNo}</strong>
+              </li>
+            ) : null}
+            {data.donemYili ? (
+              <li>
+                <span className="profil-meta-label">Dönem</span>
+                <strong>{data.donemYili}</strong>
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
+      </header>
+
+      <div className="profil-summary">
+        <section className="profil-block">
+          <h3 className="profil-block-title">İletişim</h3>
+          <dl className="profil-ozet">
+            <div>
+              <dt>Ad soyad</dt>
+              <dd>{data.ad} {data.soyad}</dd>
+            </div>
+            <div>
+              <dt>E-posta</dt>
+              <dd>{data.eposta || '—'}</dd>
+            </div>
+            <div>
+              <dt>Telefon</dt>
+              <dd>{data.telefonMasked || '—'}</dd>
+            </div>
+          </dl>
+        </section>
+
         {showBelgeler ? (
-          <>
-            <div><dt>Üniversite</dt><dd>{data.universite === 'Diğer' ? data.universiteAdi : data.universite || '—'}</dd></div>
-            <div><dt>Fakülte</dt><dd>{data.fakulte === 'Diğer' ? data.fakulteAdi : data.fakulte || '—'}</dd></div>
-            <div><dt>Bölüm</dt><dd>{data.bolum === 'Diğer' ? data.bolumAdi : data.bolum || '—'}</dd></div>
-            <div><dt>Sınıf</dt><dd>{data.sinif || '—'}</dd></div>
-          </>
+          <section className="profil-block">
+            <h3 className="profil-block-title">Eğitim</h3>
+            <dl className="profil-ozet">
+              <div>
+                <dt>Üniversite</dt>
+                <dd>{universiteLabel || '—'}</dd>
+              </div>
+              <div>
+                <dt>Fakülte</dt>
+                <dd>{fakulteLabel || '—'}</dd>
+              </div>
+              <div className="profil-ozet-wide">
+                <dt>Bölüm</dt>
+                <dd>{bolumLabel || '—'}</dd>
+              </div>
+              <div>
+                <dt>Sınıf</dt>
+                <dd>{data.sinif || '—'}</dd>
+              </div>
+            </dl>
+          </section>
         ) : (
-          <>
-            <div><dt>Kategori</dt><dd>{data.kategori || '—'}</dd></div>
-            <div><dt>Talep tutarı</dt><dd>{data.talepTutari ? `${data.talepTutari} ₺` : '—'}</dd></div>
-            <div><dt>Talep özeti</dt><dd>{data.talepOzeti || '—'}</dd></div>
-          </>
+          <section className="profil-block">
+            <h3 className="profil-block-title">Talep</h3>
+            <dl className="profil-ozet">
+              <div>
+                <dt>Kategori</dt>
+                <dd>{data.kategori || '—'}</dd>
+              </div>
+              <div>
+                <dt>Talep tutarı</dt>
+                <dd>{data.talepTutari ? `${data.talepTutari} ₺` : '—'}</dd>
+              </div>
+              <div className="profil-ozet-wide">
+                <dt>Talep özeti</dt>
+                <dd>{data.talepOzeti || '—'}</dd>
+              </div>
+            </dl>
+          </section>
         )}
-      </dl>
+      </div>
 
       {canEdit ? (
         <div className="profil-actions">
@@ -206,26 +352,29 @@ export function BasvuruProfil({
           </button>
         </div>
       ) : (
-        <p className="wizard-lead">
-          {durum === 'Reddedildi'
-            ? 'Bu başvuru reddedildiği için bilgi ve belge değiştirilemez.'
-            : durum === 'Onaylandi'
-              ? showBelgeler
-                ? 'Başvurunuz onaylandı. Bilgiler değiştirilemez; aşağıdaki belgeleri yüklemeniz yeterlidir.'
-                : 'Başvurunuz onaylandı. Bilgiler değiştirilemez.'
-              : 'Başvuru dönemi kapalı olduğu için bilgiler güncellenemez.'}
+        <p className="profil-note">
+          {!guncelDonemKaydi
+            ? 'Bu başvuru önceki döneme ait. Bilgi ve belge güncellenemez.'
+            : durum === 'Reddedildi'
+              ? 'Bu başvuru reddedildiği için bilgi ve belge değiştirilemez.'
+              : durum === 'Onaylandi'
+                ? showBelgeler && canUpload
+                  ? 'Başvurunuz onaylandı. Bilgiler değiştirilemez; aşağıdaki belgeleri yüklemeniz yeterlidir.'
+                  : 'Başvurunuz onaylandı. Bilgiler değiştirilemez.'
+                : 'Başvuru dönemi kapalı olduğu için bilgiler güncellenemez.'}
         </p>
       )}
 
-      {showBelgeler && canUpload ? (
+      {showBelgePanel ? (
         <section className="belge-panel">
           <div className="belge-panel-head">
             <div>
               <h3 className="wizard-sub">İstenen belgeler</h3>
-              <p className="wizard-lead">
-                Her satırda <strong>Dosya seç</strong>e basıp belgenizi seçin; seçimden hemen sonra otomatik kaydedilir.
-                PDF / JPG / PNG · en fazla 8 MB.
-              </p>
+              {canUpload ? (
+                <p className="wizard-lead">
+                  Her belge türü için en fazla <strong>{MAX_FILES_PER_KOD}</strong> dosya yükleyebilirsiniz.
+                </p>
+              ) : null}
             </div>
             <p className={`belge-progress ${yuklenenSayisi === toplamGerekli ? 'is-complete' : ''}`}>
               <strong>{yuklenenSayisi}/{toplamGerekli}</strong> yüklendi
@@ -240,59 +389,92 @@ export function BasvuruProfil({
               <li key={item.text}>
                 <p className="belge-card-title">{item.text}</p>
                 {rowsOf(item).map((kod) => {
-                  const mevcut = findBelge(kod)
+                  const mevcutlar = findBelgeler(kod)
                   const rowBusy = busy === kod
+                  const dolu = mevcutlar.length >= MAX_FILES_PER_KOD
                   return (
-                    <div className={`belge-upload-card ${mevcut ? 'is-done' : 'is-missing'}`} key={kod}>
+                    <div
+                      className={`belge-upload-card ${mevcutlar.length > 0 ? 'is-done' : 'is-missing'}`}
+                      key={kod}
+                    >
                       {item.alt ? <span className="belge-alt-label">{kod}</span> : null}
 
                       <div className="belge-upload-main">
                         <div className="belge-upload-status">
                           {rowBusy ? (
                             <span className="belge-badge is-busy">Yükleniyor…</span>
-                          ) : mevcut ? (
-                            <span className="belge-badge is-done">Yüklendi</span>
+                          ) : mevcutlar.length > 0 ? (
+                            <span className="belge-badge is-done">
+                              {mevcutlar.length}/{MAX_FILES_PER_KOD} dosya
+                            </span>
                           ) : (
                             <span className="belge-badge is-missing">Eksik</span>
                           )}
-                          {mevcut ? (
-                            <span className="belge-file-name" title={mevcut.dosyaAdi}>{mevcut.dosyaAdi}</span>
-                          ) : (
+                          {mevcutlar.length === 0 && !rowBusy ? (
                             <span className="belge-file-hint">Henüz dosya yok</span>
-                          )}
-                        </div>
-
-                        <div className="belge-upload-actions">
-                          {mevcut && !rowBusy ? (
-                            <>
-                              <button type="button" className="btn btn-ghost-dark btn-small" onClick={() => void openSaved(mevcut)}>
-                                Görüntüle
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost-dark btn-small"
-                                onClick={() => void remove(mevcut)}
-                              >
-                                Sil
-                              </button>
-                            </>
                           ) : null}
+                        </div>
+                      </div>
 
-                          <label className={`btn btn-small belge-file ${rowBusy ? 'is-disabled' : ''}`}>
-                            {rowBusy ? 'Bekleyin…' : mevcut ? 'Değiştir' : 'Dosya seç'}
+                      {mevcutlar.length > 0 ? (
+                        <ul className="belge-file-list">
+                          {mevcutlar.map((belge) => (
+                            <li key={belge.id} className="belge-file-row">
+                              <span className="belge-file-name" title={belge.dosyaAdi}>
+                                {belge.dosyaAdi}
+                              </span>
+                              <div className="belge-upload-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost-dark btn-small"
+                                  disabled={rowBusy}
+                                  onClick={() => void openSaved(belge)}
+                                >
+                                  Görüntüle
+                                </button>
+                                {canUpload ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost-dark btn-small"
+                                    disabled={rowBusy}
+                                    onClick={() => void remove(belge)}
+                                  >
+                                    Sil
+                                  </button>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      {canUpload ? (
+                        <div className="belge-upload-actions belge-upload-add">
+                          <label
+                            className={`btn btn-small belge-file ${rowBusy || dolu ? 'is-disabled' : ''}`}
+                          >
+                            {rowBusy
+                              ? 'Bekleyin…'
+                              : dolu
+                                ? 'Limit doldu (5/5)'
+                                : mevcutlar.length > 0
+                                  ? `Başka dosya ekle (${mevcutlar.length}/${MAX_FILES_PER_KOD})`
+                                  : 'Dosya ekle'}
                             <input
                               type="file"
+                              multiple
                               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                              disabled={rowBusy}
+                              disabled={rowBusy || dolu}
                               onChange={(e) => {
-                                const file = e.target.files?.[0]
+                                // FileList canlıdır; value temizlenmeden önce kopyala
+                                const list = Array.from(e.target.files ?? [])
                                 e.target.value = ''
-                                if (file) void upload(kod, file)
+                                if (list.length) void upload(kod, list)
                               }}
                             />
                           </label>
                         </div>
-                      </div>
+                      ) : null}
                     </div>
                   )
                 })}
@@ -300,10 +482,6 @@ export function BasvuruProfil({
             ))}
           </ul>
         </section>
-      ) : durum !== 'Reddedildi' ? (
-        <p className="wizard-lead">
-          Belge yükleme, başvurunuz onaylandıktan sonra açılır.
-        </p>
       ) : null}
 
       {viewer ? (

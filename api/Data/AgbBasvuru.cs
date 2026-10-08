@@ -17,6 +17,9 @@ public sealed class AgbBasvuru
     [MaxLength(10)]
     public string BasvuruTipi { get; set; } = "Burs";
 
+    /// <summary>Başvuru yılı (TC + tip + yıl benzersiz; her yıl yeniden başvuru).</summary>
+    public int DonemYili { get; set; }
+
     [MaxLength(11)]
     public string TcKimlikNo { get; set; } = "";
 

@@ -18,6 +18,8 @@ public static class BasvuruEndpoints
         group.MapPost("/sms-dogrula", HandleSmsDogrula);
         group.MapPost("/sms-tekrar", HandleSmsTekrar);
         group.MapGet("/me", HandleGetMe);
+        group.MapGet("/me/liste", HandleListMine);
+        group.MapPost("/me/sec", HandleSelectMine);
         group.MapPut("/me", HandleSaveMe);
         group.MapPost("/me/gonder", HandleSubmitMe);
         group.MapGet("/me/belgeler", HandleListBelgeler);
@@ -179,41 +181,71 @@ public static class BasvuruEndpoints
         }
 
         var tip = BasvuruTipi.Normalize(request.BasvuruTipi);
-        var existing = await db.AGB_Vakif_Basvuru
-            .FirstOrDefaultAsync(x => x.TcKimlikNo == tc && x.BasvuruTipi == tip, ct);
-        if (existing is null)
-        {
-            if (BasvuruTipi.IsDestek(tip))
-            {
-                if (!await IsYardimAcik(db, ct))
-                {
-                    return Results.BadRequest(new { success = false, message = "Yardım başvuruları şu an kapalıdır." });
-                }
-            }
-            else if (!await IsDonemAcik(db, ct))
-            {
-                return Results.BadRequest(new { success = false, message = "Başvuru dönemi kapalı." });
-            }
-        }
+        var yil = DateTime.Now.Year;
+        AgbBasvuru? existing = null;
+        var hasAnyForTc = await db.AGB_Vakif_Basvuru.AsNoTracking()
+            .AnyAsync(x => x.TcKimlikNo == tc, ct);
 
-        if (existing is null)
+        if (request.SadeceGiris)
         {
-            existing = new AgbBasvuru
+            // Başvurum girişi: yeni taslak açma; OTP sonrası tüm kayıtlar listelenir
+            existing = await db.AGB_Vakif_Basvuru
+                .Where(x => x.TcKimlikNo == tc)
+                .OrderByDescending(x => x.DonemYili)
+                .ThenByDescending(x => x.GuncellemeTarihi)
+                .FirstOrDefaultAsync(ct);
+            if (existing is not null)
             {
-                Id = Guid.NewGuid(),
-                BasvuruTipi = tip,
-                TcKimlikNo = tc,
-                Telefon = telefon,
-                KvkkOnay = true,
-                Durum = "Taslak",
-                OlusturmaTarihi = DateTime.UtcNow,
-                GuncellemeTarihi = DateTime.UtcNow,
-            };
-            existing.BasvuruNo = await NextBasvuruNoAsync(db, ct);
-            db.AGB_Vakif_Basvuru.Add(existing);
+                existing.Telefon = telefon;
+                existing.KvkkOnay = true;
+                existing.GuncellemeTarihi = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
         }
         else
         {
+            existing = await db.AGB_Vakif_Basvuru
+                .FirstOrDefaultAsync(x => x.TcKimlikNo == tc && x.BasvuruTipi == tip && x.DonemYili == yil, ct);
+
+            var panelAcik = BasvuruTipi.IsDestek(tip)
+                ? await IsYardimAcik(db, ct)
+                : await IsDonemAcik(db, ct);
+
+            if (existing is null && panelAcik)
+            {
+                existing = new AgbBasvuru
+                {
+                    Id = Guid.NewGuid(),
+                    BasvuruTipi = tip,
+                    DonemYili = yil,
+                    TcKimlikNo = tc,
+                    Telefon = telefon,
+                    KvkkOnay = true,
+                    Durum = "Taslak",
+                    OlusturmaTarihi = DateTime.UtcNow,
+                    GuncellemeTarihi = DateTime.UtcNow,
+                };
+                existing.BasvuruNo = await NextBasvuruNoAsync(db, ct);
+                db.AGB_Vakif_Basvuru.Add(existing);
+            }
+            else if (existing is null)
+            {
+                existing = await db.AGB_Vakif_Basvuru
+                    .Where(x => x.TcKimlikNo == tc && x.BasvuruTipi == tip)
+                    .OrderByDescending(x => x.DonemYili)
+                    .FirstOrDefaultAsync(ct);
+                if (existing is null)
+                {
+                    return Results.BadRequest(new
+                    {
+                        success = false,
+                        message = BasvuruTipi.IsDestek(tip)
+                            ? "Yardım başvuruları şu an kapalıdır."
+                            : "Başvuru dönemi kapalı.",
+                    });
+                }
+            }
+
             existing.Telefon = telefon;
             existing.KvkkOnay = true;
             existing.GuncellemeTarihi = DateTime.UtcNow;
@@ -221,9 +253,9 @@ public static class BasvuruEndpoints
             {
                 existing.BasvuruNo = await NextBasvuruNoAsync(db, ct);
             }
-        }
 
-        await db.SaveChangesAsync(ct);
+            await db.SaveChangesAsync(ct);
+        }
 
         var otp = sessions.CreateOtp(tc, telefon, tip);
         var message = $"AGB Vakfi dogrulama kodunuz: {otp.Code}. 3 dk gecerlidir.";
@@ -247,7 +279,8 @@ public static class BasvuruEndpoints
             success = true,
             sessionId = otp.SessionId,
             telefonMasked = TurkishId.MaskPhone(telefon),
-            hasExisting = !string.IsNullOrWhiteSpace(existing.Ad),
+            hasExisting = hasAnyForTc || (existing is not null && !string.IsNullOrWhiteSpace(existing.Ad)),
+            sadeceGiris = request.SadeceGiris,
             expiresInSeconds = 180,
             debugOtp = exposeDebug ? otp.Code : null,
         });
@@ -322,12 +355,76 @@ public static class BasvuruEndpoints
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
 
-        var entity = await FindMine(db, access, ct, tracked: false);
+        var basvuruId = ReadBasvuruId(http);
+        var entity = await FindMine(db, access, ct, tracked: false, basvuruId);
 
         if (entity is null)
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         }
+
+        return Results.Ok(new { success = true, data = ToDto(entity) });
+    }
+
+    private static async Task<IResult> HandleListMine(
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+
+        var items = await db.AGB_Vakif_Basvuru.AsNoTracking()
+            .Where(x => x.TcKimlikNo == access.TcKimlikNo)
+            .OrderByDescending(x => x.DonemYili)
+            .ThenBy(x => x.BasvuruTipi)
+            .ThenByDescending(x => x.SonGonderimTarihi ?? x.GuncellemeTarihi)
+            .Select(x => new
+            {
+                x.Id,
+                x.BasvuruNo,
+                basvuruTipi = x.BasvuruTipi,
+                donemYili = x.DonemYili,
+                x.Durum,
+                x.Ad,
+                x.Soyad,
+                x.OlusturmaTarihi,
+                x.GuncellemeTarihi,
+                x.SonGonderimTarihi,
+            })
+            .ToListAsync(ct);
+
+        return Results.Ok(new { success = true, items });
+    }
+
+    private static async Task<IResult> HandleSelectMine(
+        BasvuruSecRequest request,
+        HttpContext http,
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        CancellationToken ct)
+    {
+        var access = RequireAccess(http, sessions);
+        if (access is null) return Results.Unauthorized();
+
+        var entity = await db.AGB_Vakif_Basvuru.AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.Id == request.BasvuruId && x.TcKimlikNo == access.TcKimlikNo,
+                ct);
+        if (entity is null)
+        {
+            return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
+        }
+
+        var token = http.Request.Headers.Authorization.ToString();
+        if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            token = token["Bearer ".Length..].Trim();
+        }
+
+        var updated = sessions.TrySelectBasvuru(token, entity.Id);
+        if (updated is null) return Results.Unauthorized();
 
         return Results.Ok(new { success = true, data = ToDto(entity) });
     }
@@ -347,15 +444,6 @@ public static class BasvuruEndpoints
             return Results.BadRequest(new { success = false, message = "Ad ve soyad yalnızca harf içermelidir." });
         }
 
-        if (!BasvuruTipi.IsDestek(access.BasvuruTipi))
-        {
-            var birthError = await RejectIfBornTooEarly(db, request.DogumTarihi, ct);
-            if (birthError is not null)
-            {
-                return Results.BadRequest(new { success = false, message = birthError });
-            }
-        }
-
         if (!IsOptionalName(request.BabaAdi) || !IsOptionalName(request.AnneAdi)
             || !IsOptionalName(request.BabaMeslegi) || !IsOptionalName(request.AnneMeslegi))
         {
@@ -366,16 +454,30 @@ public static class BasvuruEndpoints
             });
         }
 
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
 
         if (entity is null)
         {
             return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         }
 
+        if (!BasvuruTipi.IsDestek(entity.BasvuruTipi))
+        {
+            var birthError = await RejectIfBornTooEarly(db, request.DogumTarihi, ct);
+            if (birthError is not null)
+            {
+                return Results.BadRequest(new { success = false, message = birthError });
+            }
+        }
+
         if (IsKararKilitli(entity.Durum))
         {
             return Results.BadRequest(new { success = false, message = "Onaylanan veya reddedilen başvuru güncellenemez." });
+        }
+
+        if (!IsGuncelDonemKaydi(entity))
+        {
+            return Results.BadRequest(new { success = false, message = "Önceki döneme ait başvuru güncellenemez." });
         }
 
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
@@ -416,7 +518,7 @@ public static class BasvuruEndpoints
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
 
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
 
         if (entity is null)
         {
@@ -449,6 +551,11 @@ public static class BasvuruEndpoints
         if (IsKararKilitli(entity.Durum))
         {
             return Results.BadRequest(new { success = false, message = "Onaylanan veya reddedilen başvuru güncellenemez." });
+        }
+
+        if (!IsGuncelDonemKaydi(entity))
+        {
+            return Results.BadRequest(new { success = false, message = "Önceki döneme ait başvuru güncellenemez." });
         }
 
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
@@ -537,7 +644,7 @@ public static class BasvuruEndpoints
     {
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
         if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
         {
@@ -562,7 +669,7 @@ public static class BasvuruEndpoints
     {
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
         if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
         {
@@ -605,7 +712,7 @@ public static class BasvuruEndpoints
     {
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
         if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
         {
@@ -615,68 +722,137 @@ public static class BasvuruEndpoints
         {
             return Results.BadRequest(new { success = false, message = "Belge yükleme yalnızca onaylanan başvurular için açıktır." });
         }
+        if (!IsGuncelDonemKaydi(entity))
+        {
+            return Results.BadRequest(new { success = false, message = "Önceki döneme ait başvuruya belge yüklenemez." });
+        }
+        if (!await IsDonemAcik(db, ct))
+        {
+            return Results.BadRequest(new { success = false, message = "Belge yükleme yalnızca başvuru dönemi açıkken yapılabilir." });
+        }
 
         var form = await http.Request.ReadFormAsync(ct);
         var kod = (form["belgeKod"].ToString() ?? "").Trim();
-        var file = form.Files.GetFile("dosya");
         if (string.IsNullOrWhiteSpace(kod) || kod.Length > 400)
         {
             return Results.BadRequest(new { success = false, message = "Belge türü geçersiz." });
         }
-        if (file is null || file.Length == 0)
+
+        // Aynı form alanında birden fazla dosya (dosya / dosya[])
+        var files = form.Files.GetFiles("dosya")
+            .Concat(form.Files.GetFiles("dosya[]"))
+            .Where(f => f.Length > 0)
+            .ToList();
+        if (files.Count == 0)
+        {
+            var single = form.Files.GetFile("dosya");
+            if (single is { Length: > 0 }) files.Add(single);
+        }
+        if (files.Count == 0)
         {
             return Results.BadRequest(new { success = false, message = "Dosya seçin." });
         }
-        if (file.Length > 8 * 1024 * 1024)
-        {
-            return Results.BadRequest(new { success = false, message = "Dosya en fazla 8 MB olabilir." });
-        }
 
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
-        {
-            return Results.BadRequest(new { success = false, message = "Yalnızca PDF, JPG veya PNG yükleyebilirsiniz." });
-        }
+        const long maxBytes = 5 * 1024 * 1024;
+        const int maxPerKod = 5;
 
-        var previous = await db.AGB_Vakif_BasvuruBelge
-            .Where(x => x.BasvuruId == entity.Id && x.BelgeKod == kod)
-            .ToListAsync(ct);
-        foreach (var old in previous)
-        {
-            storage.TryDelete(old.SaklananAd);
-            db.AGB_Vakif_BasvuruBelge.Remove(old);
-        }
-
-        string fullPath;
-        try
-        {
-            await using var upload = file.OpenReadStream();
-            fullPath = await storage.SaveAsync(entity.BasvuruNo, entity.Id, ext, upload, ct);
-        }
-        catch (Exception)
+        var existingCount = await db.AGB_Vakif_BasvuruBelge
+            .CountAsync(x => x.BasvuruId == entity.Id && x.BelgeKod == kod, ct);
+        var kalan = maxPerKod - existingCount;
+        if (kalan <= 0)
         {
             return Results.BadRequest(new
             {
                 success = false,
-                message = "Dosya ortak alana kaydedilemedi. Depolama yolunu ve yazma izinlerini kontrol edin.",
+                message = $"Bu belge türü için en fazla {maxPerKod} dosya yükleyebilirsiniz.",
             });
         }
 
-        var row = new AgbBasvuruBelge
+        var toSave = files.Take(kalan).ToList();
+        var saved = new List<object>();
+        var savedPaths = new List<string>();
+
+        foreach (var file in toSave)
         {
-            Id = Guid.NewGuid(),
-            BasvuruId = entity.Id,
-            BelgeKod = kod,
-            DosyaAdi = Path.GetFileName(file.FileName),
-            SaklananAd = fullPath,
-            YuklemeTarihi = DateTime.UtcNow,
-        };
-        db.AGB_Vakif_BasvuruBelge.Add(row);
-        await db.SaveChangesAsync(ct);
+            if (file.Length > maxBytes)
+            {
+                foreach (var p in savedPaths) storage.TryDelete(p);
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = $"“{Path.GetFileName(file.FileName)}” en fazla 5 MB olabilir.",
+                });
+            }
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
+            {
+                foreach (var p in savedPaths) storage.TryDelete(p);
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Yalnızca PDF, JPG veya PNG yükleyebilirsiniz.",
+                });
+            }
+
+            string fullPath;
+            try
+            {
+                await using var upload = file.OpenReadStream();
+                fullPath = await storage.SaveAsync(entity.BasvuruNo, entity.Id, ext, upload, ct);
+            }
+            catch (Exception)
+            {
+                foreach (var p in savedPaths) storage.TryDelete(p);
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Dosya ortak alana kaydedilemedi. Depolama yolunu ve yazma izinlerini kontrol edin.",
+                });
+            }
+
+            savedPaths.Add(fullPath);
+            var row = new AgbBasvuruBelge
+            {
+                Id = Guid.NewGuid(),
+                BasvuruId = entity.Id,
+                BelgeKod = kod,
+                DosyaAdi = Path.GetFileName(file.FileName),
+                SaklananAd = fullPath,
+                YuklemeTarihi = DateTime.UtcNow,
+            };
+            db.AGB_Vakif_BasvuruBelge.Add(row);
+            saved.Add(new
+            {
+                id = row.Id,
+                belgeKod = row.BelgeKod,
+                dosyaAdi = row.DosyaAdi,
+                yuklemeTarihi = row.YuklemeTarihi,
+            });
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            foreach (var p in savedPaths) storage.TryDelete(p);
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "Belgeler kaydedilemedi. Lütfen tekrar deneyin.",
+            });
+        }
+
         return Results.Ok(new
         {
             success = true,
-            item = new { row.Id, row.BelgeKod, row.DosyaAdi, row.YuklemeTarihi },
+            items = saved,
+            item = saved.Count > 0 ? saved[0] : null,
+            count = existingCount + saved.Count,
+            maxPerKod,
+            truncated = files.Count > toSave.Count,
         });
     }
 
@@ -690,7 +866,7 @@ public static class BasvuruEndpoints
     {
         var access = RequireAccess(http, sessions);
         if (access is null) return Results.Unauthorized();
-        var entity = await FindMine(db, access, ct);
+        var entity = await FindMine(db, access, ct, basvuruId: ReadBasvuruId(http));
         if (entity is null) return Results.NotFound(new { success = false, message = "Başvuru bulunamadı." });
         if (BasvuruTipi.IsDestek(entity.BasvuruTipi))
         {
@@ -699,6 +875,14 @@ public static class BasvuruEndpoints
         if (!string.Equals(entity.Durum, "Onaylandi", StringComparison.OrdinalIgnoreCase))
         {
             return Results.BadRequest(new { success = false, message = "Belge silme yalnızca onaylanan başvurular için açıktır." });
+        }
+        if (!IsGuncelDonemKaydi(entity))
+        {
+            return Results.BadRequest(new { success = false, message = "Önceki döneme ait başvurudan belge silinemez." });
+        }
+        if (!await IsDonemAcik(db, ct))
+        {
+            return Results.BadRequest(new { success = false, message = "Belge silme yalnızca başvuru dönemi açıkken yapılabilir." });
         }
 
         var row = await db.AGB_Vakif_BasvuruBelge
@@ -711,18 +895,39 @@ public static class BasvuruEndpoints
         return Results.Ok(new { success = true });
     }
 
-    private static Task<AgbBasvuru?> FindMine(
+    private static Guid? ReadBasvuruId(HttpContext http)
+    {
+        var q = http.Request.Query["basvuruId"].ToString();
+        if (Guid.TryParse(q, out var fromQuery)) return fromQuery;
+        var header = http.Request.Headers["X-Basvuru-Id"].ToString();
+        if (Guid.TryParse(header, out var fromHeader)) return fromHeader;
+        return null;
+    }
+
+    private static async Task<AgbBasvuru?> FindMine(
         BoytasWhContext db,
         AccessSession access,
         CancellationToken ct,
-        bool tracked = true)
+        bool tracked = true,
+        Guid? basvuruId = null)
     {
         var q = tracked
             ? db.AGB_Vakif_Basvuru.AsQueryable()
             : db.AGB_Vakif_Basvuru.AsNoTracking();
-        return q.FirstOrDefaultAsync(
-            x => x.TcKimlikNo == access.TcKimlikNo && x.BasvuruTipi == access.BasvuruTipi,
-            ct);
+        q = q.Where(x => x.TcKimlikNo == access.TcKimlikNo);
+
+        var selectedId = basvuruId ?? access.SelectedBasvuruId;
+        if (selectedId is Guid id)
+        {
+            return await q.FirstOrDefaultAsync(x => x.Id == id, ct);
+        }
+
+        q = q.Where(x => x.BasvuruTipi == access.BasvuruTipi);
+        var yil = DateTime.Now.Year;
+        var current = await q.FirstOrDefaultAsync(x => x.DonemYili == yil, ct);
+        if (current is not null) return current;
+
+        return await q.OrderByDescending(x => x.DonemYili).FirstOrDefaultAsync(ct);
     }
 
     private static string? ValidateDestekSubmit(BasvuruKaydetRequest request)
@@ -748,6 +953,9 @@ public static class BasvuruEndpoints
     private static bool IsKararKilitli(string? durum) =>
         string.Equals(durum, "Onaylandi", StringComparison.OrdinalIgnoreCase)
         || string.Equals(durum, "Reddedildi", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsGuncelDonemKaydi(AgbBasvuru entity) =>
+        entity.DonemYili == DateTime.Now.Year;
 
     private static async Task<bool> IsDonemAcik(BoytasWhContext db, CancellationToken ct)
     {
@@ -889,6 +1097,7 @@ public static class BasvuruEndpoints
         Id = e.Id,
         BasvuruNo = e.BasvuruNo,
         BasvuruTipi = e.BasvuruTipi,
+        DonemYili = e.DonemYili,
         TcKimlikNoMasked = TurkishId.MaskTc(e.TcKimlikNo),
         TelefonMasked = TurkishId.MaskPhone(e.Telefon),
         Ad = e.Ad,

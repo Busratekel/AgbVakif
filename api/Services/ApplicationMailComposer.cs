@@ -114,7 +114,7 @@ public static class ApplicationMailComposer
 
     public static string ApprovalSms(string? basvuruNo)
     {
-        return "Anadolu Güçbirliği Vakfı: Başvurunuz onaylanmıştır. İstenen belgeleri Başvurum bölümündeki belge yükleme alanından ekleyiniz.";
+        return "Anadolu Güçbirliği Vakfı: Başvurunuz onaylanmıştır. İstenen belgeleri site üzerindeki Başvurum bölümündeki belge yükleme alanından ekleyiniz.";
     }
 
     public static string BuildRejectionHtml(string? adSoyad, string? basvuruNo)

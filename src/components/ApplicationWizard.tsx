@@ -25,11 +25,20 @@ import {
   wizardStepsFor,
   type BasvuruData,
   type BasvuruKind,
+  type BasvuruListeItem,
   type WizardStep,
 } from '../basvuruTypes'
 import { validateTCKN } from '../tcKimlik'
 import { KvkkContent } from './KvkkContent'
 import { BasvuruProfil } from './BasvuruProfil'
+
+const DURUM_LISTE: Record<string, string> = {
+  Taslak: 'Taslak',
+  Gonderildi: 'Gönderildi',
+  Inceleniyor: 'İnceleniyor',
+  Onaylandi: 'Onaylandı',
+  Reddedildi: 'Reddedildi',
+}
 
 type ApiBasvuru = Record<string, unknown> & {
   id: string
@@ -78,6 +87,7 @@ function mapApi(data: ApiBasvuru): BasvuruData {
   return {
     id: data.id,
     basvuruNo: str(data.basvuruNo) || undefined,
+    donemYili: typeof data.donemYili === 'number' ? data.donemYili : undefined,
     tcKimlikNoMasked: data.tcKimlikNoMasked,
     telefonMasked: data.telefonMasked,
     ad: str(data.ad),
@@ -170,30 +180,37 @@ function lettersOnly(value: string) {
 }
 
 export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
-  const isYardim = kind === 'yardim'
-  const basvuruTipiApi = apiBasvuruTipi(kind)
-  const wizardSteps = useMemo(() => wizardStepsFor(kind), [kind])
   const [searchParams] = useSearchParams()
   const profilGiris = searchParams.get('giris') === '1'
+  /** Listeden seçilen kaydın tipi sayfa kind’ından farklı olabilir */
+  const [sessionKind, setSessionKind] = useState<BasvuruKind>(kind)
+  useEffect(() => {
+    setSessionKind(kind)
+  }, [kind])
+  const isYardim = sessionKind === 'yardim'
+  const pageIsYardim = kind === 'yardim'
+  const basvuruTipiApi = apiBasvuruTipi(sessionKind)
+  const wizardSteps = useMemo(() => wizardStepsFor(sessionKind), [sessionKind])
   const [step, setStep] = useState<WizardStep>(profilGiris ? 'kimlik' : 'kvkk')
   const [kvkkOk, setKvkkOk] = useState(profilGiris)
   const [kvkkReadToEnd, setKvkkReadToEnd] = useState(profilGiris)
   const kvkkScrollRef = useRef<HTMLDivElement>(null)
   const [donem, setDonem] = useState({
-    baslik: isYardim ? 'Yardım / Destek Başvurusu' : '2026–2027 Lisans Başvurusu',
+    baslik: pageIsYardim ? 'Yardım / Destek Başvurusu' : '2026–2027 Lisans Başvurusu',
     baslikNot: '',
-    formBaslik: isYardim ? 'Yardım / Destek Başvuru Formu' : 'Lisans Burs Başvurusu Formu',
-    formBaslikNot: isYardim
+    formBaslik: pageIsYardim ? 'Yardım / Destek Başvuru Formu' : 'Lisans Burs Başvurusu Formu',
+    formBaslikNot: pageIsYardim
       ? 'Başvuru birkaç dakika sürer. KVKK metnini okuduktan sonra kimliğinizi SMS ile doğrular, iletişim ve destek talebinizi paylaşırsınız.'
       : 'Başvuru yaklaşık 10 dakika sürer. Devam etmek için aydınlatma metnini sonuna kadar okuyup onaylamanız gerekir. Kimliğiniz, cep telefonunuza gönderilecek tek kullanımlık kod ile doğrulanır.',
-    donemMetni: isYardim ? 'Yardım başvurusu durumu yükleniyor…' : 'Başvuru dönemi yükleniyor…',
-    acik: true,
-    yardimAcik: true,
+    donemMetni: pageIsYardim ? 'Yardım başvurusu durumu yükleniyor…' : 'Başvuru dönemi yükleniyor…',
+    acik: false,
+    yardimAcik: false,
     minDogumTarihi: '',
     yasSiniri: '',
   })
   /** Burs: dönem tarihleri · Yardım: paneldeki YardimBasvuruAktif */
   const formAcik = isYardim ? donem.yardimAcik : donem.acik
+  const pageFormAcik = pageIsYardim ? donem.yardimAcik : donem.acik
   const [returning, setReturning] = useState(profilGiris)
   const [tc, setTc] = useState('')
   const [telefon, setTelefon] = useState('')
@@ -209,6 +226,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
   const [loading, setLoading] = useState(false)
   const [wasUpdate, setWasUpdate] = useState(false)
   const [fromProfil, setFromProfil] = useState(false)
+  const [basvuruListesi, setBasvuruListesi] = useState<BasvuruListeItem[]>([])
   const alertRef = useRef<HTMLDivElement>(null)
 
   function update(patch: Partial<BasvuruData>) {
@@ -259,13 +277,13 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
         const json = await res.json()
         if (!cancelled && res.ok && json.success) {
           setDonem({
-            baslik: isYardim ? 'Yardım / Destek Başvurusu' : json.baslik,
-            baslikNot: isYardim ? '' : (json.baslikNot ?? ''),
-            formBaslik: isYardim ? 'Yardım / Destek Başvuru Formu' : json.formBaslik,
-            formBaslikNot: isYardim
+            baslik: pageIsYardim ? 'Yardım / Destek Başvurusu' : json.baslik,
+            baslikNot: pageIsYardim ? '' : (json.baslikNot ?? ''),
+            formBaslik: pageIsYardim ? 'Yardım / Destek Başvuru Formu' : json.formBaslik,
+            formBaslikNot: pageIsYardim
               ? 'Başvuru birkaç dakika sürer. KVKK metnini okuduktan sonra kimliğinizi SMS ile doğrular, iletişim ve destek talebinizi paylaşırsınız.'
               : (json.formBaslikNot ?? ''),
-            donemMetni: isYardim
+            donemMetni: pageIsYardim
               ? (json.yardimAcik === false
                 ? 'Yardım başvuruları şu an kapalıdır.'
                 : 'Yardım başvuruları açıktır.')
@@ -283,7 +301,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
     return () => {
       cancelled = true
     }
-  }, [isYardim])
+  }, [pageIsYardim])
 
   useEffect(() => {
     if (step !== 'kvkk') return
@@ -365,6 +383,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
           telefon,
           kvkkOnay: kvkkOk,
           basvuruTipi: basvuruTipiApi,
+          sadeceGiris: returning,
         }),
       })
       const result = await response.json()
@@ -398,6 +417,20 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
         throw new Error(result.message || 'SMS doğrulanamadı')
       }
       setAccessToken(result.accessToken)
+
+      if (returning) {
+        const listRes = await fetch(`${FORM_API_URL}/basvuru/me/liste`, {
+          headers: authHeaders(result.accessToken),
+        })
+        const listJson = await listRes.json()
+        if (!listRes.ok || !listJson.success) {
+          throw new Error(listJson.message || 'Başvurular yüklenemedi')
+        }
+        setBasvuruListesi(Array.isArray(listJson.items) ? listJson.items : [])
+        setStep('liste')
+        return
+      }
+
       const me = await fetch(`${FORM_API_URL}/basvuru/me`, {
         headers: authHeaders(result.accessToken),
       })
@@ -422,6 +455,63 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bir hata oluştu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function refreshBasvuruListesi(token = accessToken) {
+    const listRes = await fetch(`${FORM_API_URL}/basvuru/me/liste`, {
+      headers: authHeaders(token),
+    })
+    const listJson = await listRes.json()
+    if (!listRes.ok || !listJson.success) {
+      throw new Error(listJson.message || 'Başvurular yüklenemedi')
+    }
+    setBasvuruListesi(Array.isArray(listJson.items) ? listJson.items : [])
+  }
+
+  async function openBasvuruFromListe(basvuruId: string) {
+    setError('')
+    setLoading(true)
+    try {
+      const response = await fetch(`${FORM_API_URL}/basvuru/me/sec`, {
+        method: 'POST',
+        headers: { ...authHeaders(accessToken), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basvuruId }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || 'Başvuru açılamadı')
+      }
+      const mapped = mapApi(json.data as ApiBasvuru)
+      setData(mapped)
+      const tipYardim = (mapped.basvuruTipi ?? '').toLowerCase() === 'destek'
+      setSessionKind(tipYardim ? 'yardim' : 'burs')
+      const gonderilmis = ['Gonderildi', 'Inceleniyor', 'Onaylandi', 'Reddedildi'].includes(mapped.durum ?? '')
+      const acik = tipYardim ? donem.yardimAcik : donem.acik
+      if (gonderilmis || !acik) {
+        setFromProfil(true)
+        setStep('profil')
+      } else {
+        setFromProfil(true)
+        setStep('bilgiler')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Başvuru açılamadı')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function goBackToListe() {
+    setError('')
+    setLoading(true)
+    try {
+      await refreshBasvuruListesi()
+      setStep('liste')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Liste yüklenemedi')
     } finally {
       setLoading(false)
     }
@@ -535,7 +625,9 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
     if (!data.kayitYili) missing.push({ key: 'kayitYili', message: req })
     if (!data.sinif) missing.push({ key: 'sinif', message: req })
     if (!data.bitirmeYili) missing.push({ key: 'bitirmeYili', message: req })
-    if (!data.hazirlik) missing.push({ key: 'hazirlik', message: req })
+    if (isYeniOgrenci(data.sinif) && !data.hazirlik) {
+      missing.push({ key: 'hazirlik', message: req })
+    }
     if (!data.ailedenUzakta) missing.push({ key: 'ailedenUzakta', message: req })
     if (data.ailedenUzakta === 'Evet') {
       if (!data.konaklamaDurumu) missing.push({ key: 'konaklamaDurumu', message: req })
@@ -663,7 +755,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
   return (
     <section className="section application wizard" id="basvuru-form">
       <div className="shell">
-        {step !== 'profil' && !(returning && (step === 'kimlik' || step === 'sms')) ? <ol className="wizard-steps">
+        {step !== 'profil' && step !== 'liste' && !(returning && (step === 'kimlik' || step === 'sms')) ? <ol className="wizard-steps">
           {wizardSteps.map((item, index) => {
             const done = index < stepIndex
             const current = index === stepIndex
@@ -1408,6 +1500,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
                       const sinif = e.target.value
                       update({
                         sinif,
+                        hazirlik: isYeniOgrenci(sinif) ? data.hazirlik : '',
                         yksSiralamasi: isYeniOgrenci(sinif) ? data.yksSiralamasi : '',
                         notOrtalamasi: isAraSinif(sinif) ? data.notOrtalamasi : '',
                       })
@@ -1425,14 +1518,16 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
                     {BITIRME_YILLARI.map((y) => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </label>
-                <label className={isInvalid('hazirlik')}>
-                  <span>Hazırlık okuyacak mısınız?<abbr className="req" title="Zorunlu">*</abbr></span>
-                  {fieldError('hazirlik')}
-                  <select value={data.hazirlik} onChange={(e) => update({ hazirlik: e.target.value })}>
-                    <option value="">Seçiniz</option>
-                    {EVET_HAYIR.map((x) => <option key={x} value={x}>{x}</option>)}
-                  </select>
-                </label>
+                {isYeniOgrenci(data.sinif) ? (
+                  <label className={isInvalid('hazirlik')}>
+                    <span>Hazırlık okuyacak mısınız?<abbr className="req" title="Zorunlu">*</abbr></span>
+                    {fieldError('hazirlik')}
+                    <select value={data.hazirlik} onChange={(e) => update({ hazirlik: e.target.value })}>
+                      <option value="">Seçiniz</option>
+                      {EVET_HAYIR.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                  </label>
+                ) : null}
                 <label className={isInvalid('ailedenUzakta')}>
                   <span>Aileden uzakta mı okuyorsunuz?<abbr className="req" title="Zorunlu">*</abbr></span>
                   {fieldError('ailedenUzakta')}
@@ -1803,8 +1898,11 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
                         <td>{data.sinif || '—'} · {data.bitirmeYili || '—'}</td>
                       </tr>
                       <tr>
-                        <th>Kayıt yılı / Hazırlık</th>
-                        <td>{data.kayitYili || '—'} · {data.hazirlik || '—'}</td>
+                        <th>Kayıt yılı{isYeniOgrenci(data.sinif) ? ' / Hazırlık' : ''}</th>
+                        <td>
+                          {data.kayitYili || '—'}
+                          {isYeniOgrenci(data.sinif) ? ` · ${data.hazirlik || '—'}` : ''}
+                        </td>
                       </tr>
                       {data.yksSiralamasi ? (
                         <tr>
@@ -1858,12 +1956,91 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
             </>
           )}
 
+          {step === 'liste' && (
+            <div className="basvuru-liste">
+              <div className="wizard-title-row">
+                <h2>Başvurularım</h2>
+              </div>
+              <p className="wizard-lead">
+                Aynı T.C. kimlik numarasına ait burs ve yardım başvurularınız (tüm yıllar) aşağıda listelenir.
+              </p>
+              {error ? (
+                <div className="form-alert is-error" ref={alertRef}><p>{error}</p></div>
+              ) : null}
+              {basvuruListesi.length === 0 ? (
+                <div className="form-alert">
+                  <p>Henüz kayıtlı başvurunuz yok.</p>
+                  {pageFormAcik ? (
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      onClick={() => {
+                        setReturning(false)
+                        setSessionKind(kind)
+                        setStep('kvkk')
+                      }}
+                    >
+                      Yeni başvuru başlat
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <ul className="basvuru-liste-cards">
+                  {basvuruListesi.map((item) => {
+                    const tipLabel = item.basvuruTipi === 'Destek' ? 'Yardım' : 'Burs'
+                    const durumLabel = DURUM_LISTE[item.durum ?? ''] ?? item.durum ?? '—'
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className="basvuru-liste-card"
+                          disabled={loading}
+                          onClick={() => void openBasvuruFromListe(item.id)}
+                        >
+                          <span className="basvuru-liste-top">
+                            <strong>{tipLabel}</strong>
+                            <span className="basvuru-liste-yil">{item.donemYili ?? '—'}</span>
+                          </span>
+                          <span className={`admin-pill durum-${(item.durum || '').toLowerCase()}`}>
+                            {durumLabel}
+                          </span>
+                          <span className="basvuru-liste-meta">
+                            {item.basvuruNo ? <>No: {item.basvuruNo}</> : 'Taslak'}
+                            {item.ad || item.soyad ? <> · {[item.ad, item.soyad].filter(Boolean).join(' ')}</> : null}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              {pageFormAcik ? (
+                <p className="wizard-lead">
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() => {
+                      setReturning(false)
+                      setSessionKind(kind)
+                      setKvkkOk(false)
+                      setKvkkReadToEnd(false)
+                      setStep('kvkk')
+                    }}
+                  >
+                    Bu dönem için yeni {pageIsYardim ? 'yardım' : 'burs'} başvurusu yap
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          )}
+
           {step === 'profil' && (
             <BasvuruProfil
               data={data}
               accessToken={accessToken}
               donemAcik={formAcik}
               showBelgeler={!isYardim}
+              onBackToList={returning ? () => void goBackToListe() : undefined}
               onEdit={() => {
                 setError('')
                 setFromProfil(true)
@@ -1970,7 +2147,7 @@ function payloadFromData(data: BasvuruData) {
     kayitYili: data.kayitYili,
     sinif: data.sinif,
     bitirmeYili: data.bitirmeYili,
-    hazirlik: data.hazirlik,
+    hazirlik: isYeniOgrenci(data.sinif) ? data.hazirlik || null : null,
     ailedenUzakta: data.ailedenUzakta,
     konaklamaDurumu: data.konaklamaDurumu || null,
     konaklamaUcreti: data.konaklamaUcreti || null,

@@ -32,7 +32,7 @@ public sealed class BoytasWhContext(DbContextOptions<BoytasWhContext> options) :
         {
             entity.ToTable("AGB_Vakif_Basvuru");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => new { x.TcKimlikNo, x.BasvuruTipi }).IsUnique();
+            entity.HasIndex(x => new { x.TcKimlikNo, x.BasvuruTipi, x.DonemYili }).IsUnique();
             entity.Property(x => x.AcikAdres).HasColumnType("nvarchar(max)");
             entity.Property(x => x.OzelDurum).HasColumnType("nvarchar(max)");
             entity.Property(x => x.TalepOzeti).HasColumnType("nvarchar(max)");

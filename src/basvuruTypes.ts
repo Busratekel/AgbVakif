@@ -4,6 +4,7 @@ export type WizardStep =
   | 'kvkk'
   | 'kimlik'
   | 'sms'
+  | 'liste'
   | 'bilgiler'
   | 'detay'
   | 'destek'
@@ -11,6 +12,19 @@ export type WizardStep =
   | 'ozet'
   | 'sonuc'
   | 'profil'
+
+export type BasvuruListeItem = {
+  id: string
+  basvuruNo?: string
+  basvuruTipi?: string
+  donemYili?: number
+  durum?: string
+  ad?: string
+  soyad?: string
+  olusturmaTarihi?: string
+  guncellemeTarihi?: string
+  sonGonderimTarihi?: string
+}
 
 export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
   { id: 'kvkk', label: 'KVKK Onayı' },
@@ -45,6 +59,7 @@ export function apiBasvuruTipi(kind: BasvuruKind) {
 export type BasvuruData = {
   id?: string
   basvuruNo?: string
+  donemYili?: number
   tcKimlikNoMasked?: string
   telefonMasked?: string
   ad: string

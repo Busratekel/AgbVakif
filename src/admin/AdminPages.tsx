@@ -256,6 +256,7 @@ export function AdminBasvuruList() {
           <thead>
             <tr>
               <th>Başvuru no</th>
+              <th>Yıl</th>
               <th>Tip</th>
               <th>Ad Soyad</th>
               <th>T.C.</th>
@@ -267,13 +268,14 @@ export function AdminBasvuruList() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8}>Yükleniyor…</td></tr>
+              <tr><td colSpan={9}>Yükleniyor…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={8}>Kayıt bulunamadı.</td></tr>
+              <tr><td colSpan={9}>Kayıt bulunamadı.</td></tr>
             ) : (
               items.map((row) => (
                 <tr key={row.id}>
                   <td>{row.basvuruNo || '—'}</td>
+                  <td>{row.donemYili || '—'}</td>
                   <td>{row.basvuruTipi === 'Destek' ? 'Yardım' : 'Burs'}</td>
                   <td>{row.ad} {row.soyad}</td>
                   <td>{row.tcKimlikNo}</td>
@@ -499,44 +501,59 @@ export function AdminBasvuruDetail() {
             <p className="field-hint">Henüz belge yüklenmedi.</p>
           ) : (
             <ul className="admin-belge-list">
-              {belgeler.map((b) => (
-                <li key={b.id} className="admin-belge-item">
-                  <AdminBelgeOnizleme basvuruId={id} belgeId={b.id} dosyaAdi={b.dosyaAdi} />
-                  <div className="admin-belge-meta">
-                    <span className="admin-belge-kod">{b.belgeKod}</span>
-                    <strong className="admin-belge-name">{b.dosyaAdi}</strong>
-                    {b.saklananAd ? (
-                      <code className="admin-belge-path" title={b.saklananAd}>{b.saklananAd}</code>
-                    ) : null}
-                    <div className="admin-belge-actions">
-                      <button
-                        type="button"
-                        className="btn btn-ghost-dark btn-small"
-                        onClick={() => {
-                          void adminOpenBelge(id, b.id).catch((err) => {
-                            const msg = err instanceof Error ? err.message : 'Belge açılamadı'
-                            setError(msg)
-                            toast.error(msg)
-                          })
-                        }}
-                      >
-                        Görüntüle
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost-dark btn-small"
-                        onClick={() => {
-                          void adminDownloadBelge(id, b.id, b.dosyaAdi).catch((err) => {
-                            const msg = err instanceof Error ? err.message : 'Belge indirilemedi'
-                            setError(msg)
-                            toast.error(msg)
-                          })
-                        }}
-                      >
-                        İndir
-                      </button>
-                    </div>
+              {Object.entries(
+                belgeler.reduce<Record<string, typeof belgeler>>((acc, b) => {
+                  const key = b.belgeKod || 'Diğer'
+                  ;(acc[key] ??= []).push(b)
+                  return acc
+                }, {}),
+              ).map(([kod, grup]) => (
+                <li key={kod} className="admin-belge-group">
+                  <div className="admin-belge-group-head">
+                    <strong className="admin-belge-kod">{kod}</strong>
+                    <span className="admin-belge-group-count">{grup.length} dosya</span>
                   </div>
+                  <ul className="admin-belge-files">
+                    {grup.map((b) => (
+                      <li key={b.id} className="admin-belge-item">
+                        <AdminBelgeOnizleme basvuruId={id} belgeId={b.id} dosyaAdi={b.dosyaAdi} />
+                        <div className="admin-belge-meta">
+                          <span className="admin-belge-name" title={b.dosyaAdi}>{b.dosyaAdi}</span>
+                          {b.saklananAd ? (
+                            <code className="admin-belge-path" title={b.saklananAd}>{b.saklananAd}</code>
+                          ) : null}
+                          <div className="admin-belge-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost-dark btn-small"
+                              onClick={() => {
+                                void adminOpenBelge(id, b.id).catch((err) => {
+                                  const msg = err instanceof Error ? err.message : 'Belge açılamadı'
+                                  setError(msg)
+                                  toast.error(msg)
+                                })
+                              }}
+                            >
+                              Görüntüle
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost-dark btn-small"
+                              onClick={() => {
+                                void adminDownloadBelge(id, b.id, b.dosyaAdi).catch((err) => {
+                                  const msg = err instanceof Error ? err.message : 'Belge indirilemedi'
+                                  setError(msg)
+                                  toast.error(msg)
+                                })
+                              }}
+                            >
+                              İndir
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -549,6 +566,7 @@ export function AdminBasvuruDetail() {
           <h3>Kimlik / iletişim</h3>
           <dl className="admin-kv-list">
             <Row label="Başvuru no" value={s('basvuruNo')} />
+            <Row label="Dönem yılı" value={s('donemYili')} />
             <Row
               label="Başvuru tipi"
               value={s('basvuruTipi') === 'Destek' ? 'Yardım / destek' : 'Burs'}
@@ -628,7 +646,9 @@ export function AdminBasvuruDetail() {
             <Row label="Kayıt yılı" value={s('kayitYili')} />
             <Row label="Sınıf" value={s('sinif')} />
             <Row label="Bitirme yılı" value={s('bitirmeYili')} />
-            <Row label="Hazırlık" value={s('hazirlik')} />
+            {s('sinif') === 'Yeni Başlayan' ? (
+              <Row label="Hazırlık okuyacak mı?" value={s('hazirlik')} />
+            ) : null}
             <Row label="Aileden uzakta mı?" value={s('ailedenUzakta')} />
             {data.konaklamaDurumu ? <Row label="Konaklama durumu" value={s('konaklamaDurumu')} /> : null}
             {data.konaklamaUcreti ? <Row label="Konaklama ücreti" value={`${s('konaklamaUcreti')} ₺`} /> : null}
