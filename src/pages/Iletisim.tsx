@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { CONTACT, SITE } from '../config'
+import { PageHero } from '../components/PageHero'
 
 export function Iletisim() {
   return (
-    <section className="basvuru-shell">
+    <section className="basvuru-shell has-page-hero">
+      <PageHero />
       <div className="shell">
         <article className="basvuru-article legal-article">
           <header className="basvuru-article-head">

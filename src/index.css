@@ -1517,7 +1517,8 @@ nav a:not(.btn):hover,
     place-content: center;
   }
 
-  nav {
+  /* Yalnızca üst menü — footer .footer-legal-links nav'ına uygulanmamalı */
+  .site-header nav {
     position: absolute;
     top: calc(100% + 0.35rem);
     right: 1.25rem;
@@ -1532,7 +1533,7 @@ nav a:not(.btn):hover,
     box-shadow: var(--shadow);
   }
 
-  nav.is-open {
+  .site-header nav.is-open {
     display: flex;
   }
 
@@ -3126,6 +3127,128 @@ nav a:not(.btn):hover,
 
 .basvuru-shell {
   padding: clamp(5.5rem, 10vw, 7rem) 0 clamp(3.5rem, 7vw, 5rem);
+}
+
+.basvuru-shell.has-page-hero {
+  padding-top: 0;
+}
+
+.basvuru-shell.has-page-hero .basvuru-article-head {
+  display: none;
+}
+
+.basvuru-shell.has-page-hero .basvuru-layout,
+.basvuru-shell.has-page-hero > .shell:not(.page-hero-content) {
+  padding-top: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+/* İç sayfa üst banner (Holding tarzı) */
+.page-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(18rem, 42vw, 26rem);
+  display: grid;
+  align-items: end;
+  color: var(--white);
+  overflow: hidden;
+  background: #002a3d;
+}
+
+.page-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    var(--page-hero-image) center / cover no-repeat;
+  transform: scale(1.02);
+}
+
+.page-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(105deg, rgba(0, 32, 48, 0.55) 0%, rgba(0, 61, 86, 0.32) 48%, rgba(0, 42, 61, 0.18) 100%),
+    linear-gradient(180deg, rgba(0, 32, 48, 0.18) 0%, rgba(0, 32, 48, 0.38) 100%);
+}
+
+.page-hero-content {
+  position: relative;
+  z-index: 2;
+  width: var(--shell);
+  margin-inline: auto;
+  padding: calc(4.75rem + 2rem) 0 3rem;
+}
+
+.page-hero-title {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.85rem, 4.5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: var(--white);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.25);
+}
+
+.page-hero-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.2rem;
+  font-size: 0.9rem;
+  color: rgba(255, 253, 248, 0.88);
+}
+
+.page-hero-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.page-hero-crumbs a {
+  color: rgba(255, 253, 248, 0.88);
+  text-decoration: none;
+}
+
+.page-hero-crumbs a:hover {
+  color: var(--white);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.page-hero-sep {
+  opacity: 0.65;
+  margin-right: 0.15rem;
+}
+
+.page-hero-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height:1.75rem;
+  fill: var(--paper);
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .page-hero {
+    min-height: 16rem;
+  }
+
+  .page-hero-content {
+    padding: calc(4.5rem + 1.25rem) 0 2.25rem;
+  }
+
+  .page-hero-title {
+    font-size: 1.55rem;
+    letter-spacing: 0.03em;
+  }
 }
 
 .basvuru-layout {

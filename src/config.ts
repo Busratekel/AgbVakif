@@ -107,6 +107,130 @@ export const MEDYA_NAV = [
   { to: '/medya/kurumsal-kimlik', label: 'Kurumsal kimlik' },
 ] as const
 
+/** İç sayfa üst banner — görseller `public/page-heroes/` altında değiştirilebilir */
+export type PageHeroDef = {
+  title: string
+  image: string
+  crumbs: { label: string; to?: string }[]
+}
+
+export const PAGE_HEROES: Record<string, PageHeroDef> = {
+  '/kurumsal/hakkinda': {
+    title: 'Hakkında',
+    image: '/page-heroes/page-hero-hakkinda.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Kurumsal', to: '/kurumsal/hakkinda' },
+      { label: 'Hakkında' },
+    ],
+  },
+  '/kurumsal/tarihce': {
+    title: 'Tarihçe',
+    image: '/page-heroes/page-hero-tarihce.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Kurumsal', to: '/kurumsal/hakkinda' },
+      { label: 'Tarihçe' },
+    ],
+  },
+  '/kurumsal/baskan': {
+    title: 'Başkan’ın mesajı',
+    image: '/page-heroes/page-hero-baskan.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Kurumsal', to: '/kurumsal/hakkinda' },
+      { label: 'Başkan’ın mesajı' },
+    ],
+  },
+  '/kurumsal/yonetim-kurulu': {
+    title: 'Yönetim kurulu',
+    image: '/page-heroes/page-hero-yonetim.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Kurumsal', to: '/kurumsal/hakkinda' },
+      { label: 'Yönetim kurulu' },
+    ],
+  },
+  '/medya/faaliyet-raporu': {
+    title: 'Faaliyet raporu',
+    image: '/page-heroes/page-hero-medya.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Medya', to: '/medya/faaliyet-raporu' },
+      { label: 'Faaliyet raporu' },
+    ],
+  },
+  '/medya/haber': {
+    title: 'Haber',
+    image: '/page-heroes/page-hero-medya.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Medya', to: '/medya/faaliyet-raporu' },
+      { label: 'Haber' },
+    ],
+  },
+  '/medya/basin-bultenleri': {
+    title: 'Basın bültenleri',
+    image: '/page-heroes/page-hero-medya.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Medya', to: '/medya/faaliyet-raporu' },
+      { label: 'Basın bültenleri' },
+    ],
+  },
+  '/medya/kurumsal-kimlik': {
+    title: 'Kurumsal kimlik',
+    image: '/page-heroes/page-hero-medya.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Medya', to: '/medya/faaliyet-raporu' },
+      { label: 'Kurumsal kimlik' },
+    ],
+  },
+  '/basvuru': {
+    title: 'Başvuru',
+    image: '/page-heroes/page-hero-basvuru.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Başvuru' },
+    ],
+  },
+  '/basvuru/sss': {
+    title: 'Burslar hakkında SSS',
+    image: '/page-heroes/page-hero-basvuru.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Başvuru', to: '/basvuru' },
+      { label: 'SSS' },
+    ],
+  },
+  '/basvuru/belgeler': {
+    title: 'Gerekli belgeler',
+    image: '/page-heroes/page-hero-basvuru.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Başvuru', to: '/basvuru' },
+      { label: 'Belgeler' },
+    ],
+  },
+  '/yardim': {
+    title: 'Yardım başvurusu',
+    image: '/page-heroes/page-hero-basvuru.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'Yardım' },
+    ],
+  },
+  '/iletisim': {
+    title: 'İletişim',
+    image: '/page-heroes/page-hero-hakkinda.jpg',
+    crumbs: [
+      { label: 'Ana Sayfa', to: '/' },
+      { label: 'İletişim' },
+    ],
+  },
+}
+
 export const KURUMSAL_HAKKINDA = {
   eyebrow: 'Bizi tanıyın',
   title: 'Anadolu Güçbirliği Vakfı',

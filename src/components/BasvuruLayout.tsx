@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { BASVURU_NAV, YARDIM_NAV } from '../config'
+import { PageHero } from './PageHero'
 
 export function BasvuruLayout() {
   const location = useLocation()
@@ -7,7 +8,8 @@ export function BasvuruLayout() {
   const nav = isYardim ? YARDIM_NAV : BASVURU_NAV
 
   return (
-    <section className="basvuru-shell">
+    <section className="basvuru-shell has-page-hero">
+      <PageHero />
       <div className="shell basvuru-layout">
         <aside className="basvuru-side" aria-label="Başvuru menüsü">
           <p className="basvuru-side-title">{isYardim ? 'Yardım başvurusu' : 'Başvuru'}</p>
