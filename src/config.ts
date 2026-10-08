@@ -223,7 +223,7 @@ export const PAGE_HEROES: Record<string, PageHeroDef> = {
   },
   '/iletisim': {
     title: 'İletişim',
-    image: '/page-heroes/page-hero-hakkinda.jpg',
+    image: '/page-heroes/page-hero-iletisim.jpg',
     crumbs: [
       { label: 'Ana Sayfa', to: '/' },
       { label: 'İletişim' },
