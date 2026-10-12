@@ -62,4 +62,16 @@ public static class TurkishId
         if (phone.Length < 4) return phone;
         return $"{phone[..3]}** *** ** {phone[^2..]}";
     }
+
+    public static string MaskEmail(string? email)
+    {
+        var value = (email ?? "").Trim();
+        var at = value.IndexOf('@');
+        if (at <= 1 || at >= value.Length - 1) return value;
+
+        var local = value[..at];
+        var domain = value[(at + 1)..];
+        var visible = local.Length <= 2 ? local[..1] : local[..2];
+        return $"{visible}***@{domain}";
+    }
 }

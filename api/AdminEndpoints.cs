@@ -43,10 +43,30 @@ public static class AdminEndpoints
         group.MapDelete("/kullanicilar/{userName}", HandleDeleteUser);
     }
 
-    private static IResult HandleLogin(AdminLoginRequest request, IAdminAccessService access)
+    private static readonly TimeSpan LoginRateWindow = TimeSpan.FromMinutes(5);
+    private const int LoginRateMaxAttempts = 10;
+
+    private static IResult HandleLogin(
+        AdminLoginRequest request,
+        HttpContext http,
+        IAdminAccessService access,
+        RateLimitService rateLimit)
     {
         var userName = (request.UserName ?? "").Trim();
         var password = request.Password ?? "";
+        var rateKey = $"admin-login:{GetClientIp(http)}";
+
+        if (rateLimit.IsBlocked(rateKey, LoginRateMaxAttempts, LoginRateWindow, out var retryAfter))
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalMinutes));
+            return Results.Json(
+                new
+                {
+                    success = false,
+                    message = $"Çok fazla başarısız giriş denemesi. Lütfen {minutes} dakika sonra tekrar deneyin.",
+                },
+                statusCode: StatusCodes.Status429TooManyRequests);
+        }
 
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrEmpty(password))
         {
@@ -55,6 +75,7 @@ public static class AdminEndpoints
 
         if (!access.ValidateCredentials(userName, password))
         {
+            rateLimit.RecordFailure(rateKey, LoginRateWindow);
             return Results.Json(
                 new { success = false, message = "Kullanıcı adı veya şifre hatalı." },
                 statusCode: StatusCodes.Status401Unauthorized);
@@ -62,11 +83,13 @@ public static class AdminEndpoints
 
         if (!access.IsAdmin(userName))
         {
+            rateLimit.RecordFailure(rateKey, LoginRateWindow);
             return Results.Json(
                 new { success = false, message = "Bu hesap için panel yetkisi yok." },
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
+        rateLimit.Reset(rateKey);
         var session = access.CreateSession(userName);
         return Results.Ok(new
         {
@@ -75,6 +98,22 @@ public static class AdminEndpoints
             userName = session.UserName,
             expiresAt = session.ExpiresAt,
         });
+    }
+
+    private static string GetClientIp(HttpContext http)
+    {
+        var forwarded = http.Request.Headers["X-Forwarded-For"].ToString();
+        if (!string.IsNullOrWhiteSpace(forwarded))
+        {
+            var first = forwarded.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(first))
+            {
+                return first;
+            }
+        }
+
+        return http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     private static IResult HandleLogout(HttpContext http, IAdminAccessService access)

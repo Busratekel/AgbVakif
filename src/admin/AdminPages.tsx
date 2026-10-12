@@ -12,12 +12,13 @@ import {
   getAdminToken,
   type HeroSlide,
 } from './adminApi'
+import { ADMIN_BASE_PATH, ADMIN_LOGIN_PATH } from '../config'
 import { isHeroVideo } from '../heroMedia'
 import { AdminToastProvider, useAdminToast } from './AdminToast'
 
 export function AdminShell() {
   const token = getAdminToken()
-  if (!token) return <Navigate to="/admin/giris" replace />
+  if (!token) return <Navigate to={ADMIN_LOGIN_PATH} replace />
 
   return (
     <AdminToastProvider>
@@ -25,19 +26,19 @@ export function AdminShell() {
       <div className="admin-app">
         <header className="admin-top">
           <div className="shell admin-top-inner">
-            <Link to="/admin" className="admin-brand">AGB Panel</Link>
+            <Link to={ADMIN_BASE_PATH} className="admin-brand">AGB Panel</Link>
             <nav className="admin-nav">
-              <Link to="/admin">Başvurular</Link>
-              <Link to="/admin/hero">Hero / Duyuru</Link>
-              <Link to="/admin/ayarlar">Ayarlar</Link>
-              <Link to="/admin/kullanicilar">Kullanıcılar</Link>
+              <Link to={ADMIN_BASE_PATH}>Başvurular</Link>
+              <Link to={`${ADMIN_BASE_PATH}/hero`}>Hero / Duyuru</Link>
+              <Link to={`${ADMIN_BASE_PATH}/ayarlar`}>Ayarlar</Link>
+              <Link to={`${ADMIN_BASE_PATH}/kullanicilar`}>Kullanıcılar</Link>
               <Link to="/" className="muted">Siteye dön</Link>
               <button
                 type="button"
                 className="linkish"
                 onClick={() => {
                   void adminLogout().then(() => {
-                    window.location.href = '/admin/giris'
+                    window.location.href = ADMIN_LOGIN_PATH
                   })
                 }}
               >
@@ -92,9 +93,11 @@ export function AdminLogin() {
       const params = new URLSearchParams(window.location.search)
       const next = params.get('next')
       const target =
-        next && next.startsWith('/admin') && !next.startsWith('/admin/giris')
+        next
+        && next.startsWith(ADMIN_BASE_PATH)
+        && !next.startsWith(ADMIN_LOGIN_PATH)
           ? next
-          : '/admin'
+          : ADMIN_BASE_PATH
       navigate(target, { replace: true })
     } catch (err) {
       clearAdminSession()
@@ -105,7 +108,7 @@ export function AdminLogin() {
   }
 
   if (getAdminToken()) {
-    return <Navigate to="/admin" replace />
+    return <Navigate to={ADMIN_BASE_PATH} replace />
   }
 
   return (
@@ -282,7 +285,7 @@ export function AdminBasvuruList() {
                   <td>{row.basvuruTipi === 'Destek' ? (row.kategori || '—') : (row.universite || '—')}</td>
                   <td><span className={`admin-pill durum-${(row.durum || '').toLowerCase()}`}>{row.durum}</span></td>
                   <td>{formatDate(row.sonGonderimTarihi || row.guncellemeTarihi)}</td>
-                  <td><Link to={`/admin/basvuru/${row.id}`}>Detay</Link></td>
+                  <td><Link to={`${ADMIN_BASE_PATH}/basvuru/${row.id}`}>Detay</Link></td>
                 </tr>
               ))
             )}
@@ -422,7 +425,7 @@ export function AdminBasvuruDetail() {
     return (
       <div>
         {error ? <div className="form-alert is-error"><p>{error}</p></div> : null}
-        <Link to="/admin">← Listeye dön</Link>
+        <Link to={ADMIN_BASE_PATH}>← Listeye dön</Link>
       </div>
     )
   }
@@ -456,7 +459,7 @@ export function AdminBasvuruDetail() {
     <section className="admin-section">
       <div className="admin-section-head">
         <div>
-          <Link to="/admin" className="muted">← Başvurular</Link>
+          <Link to={ADMIN_BASE_PATH} className="muted">← Başvurular</Link>
           <h1>{s('ad')} {s('soyad')}</h1>
         </div>
         <span className={`admin-pill durum-${savedDurum.toLowerCase()}`}>{s('durum')}</span>

@@ -212,6 +212,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
   const formAcik = isYardim ? donem.yardimAcik : donem.acik
   const pageFormAcik = pageIsYardim ? donem.yardimAcik : donem.acik
   const [returning, setReturning] = useState(profilGiris)
+  const [phoneChangeMode, setPhoneChangeMode] = useState(false)
   const [tc, setTc] = useState('')
   const [telefon, setTelefon] = useState('')
   const [sessionId, setSessionId] = useState('')
@@ -384,6 +385,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
           kvkkOnay: kvkkOk,
           basvuruTipi: basvuruTipiApi,
           sadeceGiris: returning,
+          telefonDegistir: returning && phoneChangeMode,
         }),
       })
       const result = await response.json()
@@ -392,6 +394,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
       }
       setSessionId(result.sessionId)
       setTelefonMasked(result.telefonMasked)
+      setError('')
       setDebugOtp(result.debugOtp ?? null)
       setSecondsLeft(result.expiresInSeconds ?? 180)
       setSmsCode(['', '', '', '', '', ''])
@@ -853,12 +856,21 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
 
           {step === 'kimlik' && (
             <>
-              <h2>{returning ? 'Başvuruma giriş' : 'Kimlik Doğrulama'}</h2>
+              <h2>
+                {returning
+                  ? (phoneChangeMode ? 'Telefon güncelle' : 'Başvuruma giriş')
+                  : 'Kimlik Doğrulama'}
+              </h2>
               <p className="wizard-lead">
                 {returning
-                  ? 'Başvuru durumunuzu görmek, başvurunuzu güncellemek veya istenilen belgeleri göndermek için T.C. kimlik numaranızı ve cep telefonunuzu girin. SMS ile doğrulama yapılır.'
+                  ? phoneChangeMode
+                    ? 'Yeni cep telefonunuzu yazın. Doğrulama kodu başvurunuzda kayıtlı e-posta adresinize gönderilir; onaydan sonra yeni numara tüm başvurularınıza işlenir. E-postanıza erişiminiz yoksa vakıf ile iletişime geçin.'
+                    : 'Başvuru durumunuzu görmek için T.C. kimlik numaranızı ve başvuruda kullandığınız cep telefonunu girin. SMS ile doğrulama yapılır.'
                   : 'T.C. kimlik numaranızı ve cep telefonunuzu girin.'}
               </p>
+              {error && returning ? (
+                <div className="form-alert is-error" ref={alertRef}><p>{error}</p></div>
+              ) : null}
               <div className="form-grid">
                 <label className={tc.length === 11 && !validateTCKN(tc) ? 'is-invalid' : undefined}>
                   <span>T.C. kimlik no</span>
@@ -877,7 +889,7 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
                   )}
                 </label>
                 <label>
-                  <span>Cep telefonu</span>
+                  <span>{phoneChangeMode ? 'Yeni cep telefonu' : 'Cep telefonu'}</span>
                   <input
                     value={telefon}
                     onChange={(e) => setTelefon(formatPhoneInput(e.target.value))}
@@ -886,6 +898,20 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
                   />
                 </label>
               </div>
+              {returning ? (
+                <p className="wizard-lead">
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() => {
+                      setPhoneChangeMode((v) => !v)
+                      setError('')
+                    }}
+                  >
+                    {phoneChangeMode ? '← Kayıtlı numara ile girişe dön' : 'Numaram değişti — telefon güncelle'}
+                  </button>
+                </p>
+              ) : null}
               <div className="wizard-actions space-between">
                 {returning ? (
                   <Link to="/" className="btn btn-ghost-dark">← Ana sayfa</Link>
@@ -907,7 +933,11 @@ export function ApplicationWizard({ kind = 'burs' }: { kind?: BasvuruKind }) {
           {step === 'sms' && (
             <>
               <h2>SMS Doğrulama Kodu</h2>
-              <p className="wizard-lead">{telefonMasked} numarasına gönderilen 6 haneli kodu girin.</p>
+              <p className="wizard-lead">
+                {phoneChangeMode
+                  ? <><strong>{telefonMasked}</strong> e-posta adresine gönderilen 6 haneli kodu girin. Onaydan sonra yeni telefon numaranız kaydedilir.</>
+                  : <>{telefonMasked} numarasına gönderilen 6 haneli kodu girin.</>}
+              </p>
               {debugOtp ? <p className="debug-otp">Geliştirme OTP: <strong>{debugOtp}</strong></p> : null}
               <div className="sms-boxes">
                 {smsCode.map((digit, index) => (

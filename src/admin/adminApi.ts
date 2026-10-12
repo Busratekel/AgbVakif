@@ -1,4 +1,4 @@
-import { FORM_API_URL } from '../config'
+import { ADMIN_LOGIN_PATH, FORM_API_URL } from '../config'
 
 const TOKEN_KEY = 'agb-admin-token'
 const USER_KEY = 'agb-admin-user'
@@ -253,9 +253,9 @@ function redirectToAdminLogin() {
   clearAdminSession()
   if (typeof window === 'undefined') return
   const path = window.location.pathname
-  if (path.startsWith('/admin/giris')) return
+  if (path === ADMIN_LOGIN_PATH || path.startsWith(`${ADMIN_LOGIN_PATH}/`)) return
   const next = `${path}${window.location.search}`
-  window.location.assign(`/admin/giris?next=${encodeURIComponent(next)}`)
+  window.location.assign(`${ADMIN_LOGIN_PATH}?next=${encodeURIComponent(next)}`)
 }
 
 function formatAdminError(status: number, json: any, raw: string) {

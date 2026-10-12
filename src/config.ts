@@ -4,6 +4,11 @@ export const APPLICATION_EMAIL = 'agbvakfi@anadolugucbirligi.com.tr'
 /** Vite proxy üzerinden API: /api → http://localhost:5000 */
 export const FORM_API_URL = '/api'
 
+/** Yönetim paneli UI yolu (gizli; VITE_ADMIN_BASE_PATH ile değiştirilebilir). API yolu /api/admin kalır. */
+const rawAdminPath = (import.meta.env.VITE_ADMIN_BASE_PATH as string | undefined)?.trim() || '/yonetim-agb7k2m'
+export const ADMIN_BASE_PATH = rawAdminPath.replace(/\/$/, '') || '/yonetim-agb7k2m'
+export const ADMIN_LOGIN_PATH = `${ADMIN_BASE_PATH}/giris`
+
 export const SITE = {
   name: 'Anadolu Güçbirliği Vakfı',
   shortName: 'AGB Vakfı',

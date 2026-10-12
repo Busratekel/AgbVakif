@@ -8,12 +8,23 @@ public sealed class OtpSessionService
     private readonly ConcurrentDictionary<string, OtpSession> _otp = new();
     private readonly ConcurrentDictionary<string, AccessSession> _access = new();
 
-    public OtpSession CreateOtp(string tc, string telefon, string basvuruTipi)
+    public OtpSession CreateOtp(
+        string tc,
+        string telefon,
+        string basvuruTipi,
+        string? pendingNewTelefon = null)
     {
         Cleanup();
         var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var sessionId = Guid.NewGuid().ToString("N");
-        var entry = new OtpSession(sessionId, tc, telefon, basvuruTipi, code, DateTimeOffset.UtcNow.AddMinutes(3));
+        var entry = new OtpSession(
+            sessionId,
+            tc,
+            telefon,
+            basvuruTipi,
+            code,
+            DateTimeOffset.UtcNow.AddMinutes(3),
+            PendingNewTelefon: pendingNewTelefon);
         _otp[sessionId] = entry;
         return entry;
     }
@@ -32,14 +43,19 @@ public sealed class OtpSessionService
         if (otp.ExpiresAt < DateTimeOffset.UtcNow) return false;
         if (!string.Equals(otp.Code, code.Trim(), StringComparison.Ordinal)) return false;
 
+        var sessionPhone = string.IsNullOrWhiteSpace(otp.PendingNewTelefon)
+            ? otp.Telefon
+            : otp.PendingNewTelefon;
+
         var token = Guid.NewGuid().ToString("N");
         access = new AccessSession(
             token,
             otp.TcKimlikNo,
-            otp.Telefon,
+            sessionPhone,
             otp.BasvuruTipi,
             DateTimeOffset.UtcNow.AddHours(2),
-            SelectedBasvuruId: null);
+            SelectedBasvuruId: null,
+            PendingNewTelefonApplied: !string.IsNullOrWhiteSpace(otp.PendingNewTelefon));
         _access[token] = access;
         return true;
     }
@@ -92,7 +108,8 @@ public sealed record OtpSession(
     string Telefon,
     string BasvuruTipi,
     string Code,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string? PendingNewTelefon = null);
 
 public sealed record AccessSession(
     string Token,
@@ -100,4 +117,5 @@ public sealed record AccessSession(
     string Telefon,
     string BasvuruTipi,
     DateTimeOffset ExpiresAt,
-    Guid? SelectedBasvuruId = null);
+    Guid? SelectedBasvuruId = null,
+    bool PendingNewTelefonApplied = false);

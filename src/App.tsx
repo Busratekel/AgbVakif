@@ -39,6 +39,7 @@ import {
   AdminShell,
   AdminUsers,
 } from './admin/AdminPages'
+import { ADMIN_BASE_PATH, ADMIN_LOGIN_PATH } from './config'
 
 function PublicLayout() {
   return (
@@ -101,14 +102,17 @@ export default function App() {
           <Route path="/yasal/gizlilik-politikasi" element={<GizlilikPolitikasi />} />
           <Route path="/yasal/cerez-politikasi" element={<CerezPolitikasi />} />
         </Route>
-        <Route path="/admin/giris" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminShell />}>
+        <Route path={ADMIN_LOGIN_PATH} element={<AdminLogin />} />
+        <Route path={ADMIN_BASE_PATH} element={<AdminShell />}>
           <Route index element={<AdminBasvuruList />} />
           <Route path="basvuru/:id" element={<AdminBasvuruDetail />} />
           <Route path="ayarlar" element={<AdminConfig />} />
           <Route path="hero" element={<AdminHero />} />
           <Route path="kullanicilar" element={<AdminUsers />} />
         </Route>
+        {/* Eski /admin yolu paneli ifşa etmesin */}
+        <Route path="/admin/*" element={<Navigate to="/" replace />} />
+        <Route path="/admin" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

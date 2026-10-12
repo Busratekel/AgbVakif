@@ -18,6 +18,11 @@ public sealed class KimlikRequest
 
     /// <summary>Başvurum girişi: yeni taslak açma; OTP sonrası liste.</summary>
     public bool SadeceGiris { get; set; }
+
+    /// <summary>
+    /// Numara değişikliği: OTP kayıtlı (eski) telefona gider; doğrulama sonrası tüm kayıtlarda yeni numara yazılır.
+    /// </summary>
+    public bool TelefonDegistir { get; set; }
 }
 
 public sealed class BasvuruSecRequest

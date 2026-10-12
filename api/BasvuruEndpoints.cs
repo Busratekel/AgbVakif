@@ -153,6 +153,7 @@ public static class BasvuruEndpoints
         BoytasWhContext db,
         OtpSessionService sessions,
         ISmsSender sms,
+        IEmailSender emailSender,
         Microsoft.Extensions.Options.IOptions<SmsOptions> smsOptions,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -183,20 +184,157 @@ public static class BasvuruEndpoints
         var tip = BasvuruTipi.Normalize(request.BasvuruTipi);
         var yil = DateTime.Now.Year;
         AgbBasvuru? existing = null;
-        var hasAnyForTc = await db.AGB_Vakif_Basvuru.AsNoTracking()
-            .AnyAsync(x => x.TcKimlikNo == tc, ct);
+        var phonesForTc = await db.AGB_Vakif_Basvuru.AsNoTracking()
+            .Where(x => x.TcKimlikNo == tc)
+            .OrderByDescending(x => x.DonemYili)
+            .ThenByDescending(x => x.GuncellemeTarihi)
+            .Select(x => x.Telefon)
+            .ToListAsync(ct);
+        var hasAnyForTc = phonesForTc.Count > 0;
+        var phoneMatchesTc = phonesForTc.Any(p =>
+            string.Equals(TurkishId.NormalizePhone(p), telefon, StringComparison.Ordinal));
+        var registeredPhone = phonesForTc
+            .Select(TurkishId.NormalizePhone)
+            .FirstOrDefault(p => TurkishId.IsValidMobile(p));
 
-        if (request.SadeceGiris)
+        // Başvurum: numara değişikliği — doğrulama kodu kayıtlı e-postaya gider; onay sonrası yeni telefon yazılır
+        if (request.TelefonDegistir)
         {
-            // Başvurum girişi: yeni taslak açma; OTP sonrası tüm kayıtlar listelenir
+            if (!request.SadeceGiris)
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Telefon güncelleme yalnızca Başvurum girişinde kullanılabilir.",
+                });
+            }
+
+            if (!hasAnyForTc)
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Bu T.C. kimlik numarası ile kayıtlı başvuru bulunamadı.",
+                });
+            }
+
+            if (phoneMatchesTc)
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Girdiğiniz numara zaten kayıtlı. Normal giriş ile devam edin.",
+                });
+            }
+
             existing = await db.AGB_Vakif_Basvuru
                 .Where(x => x.TcKimlikNo == tc)
                 .OrderByDescending(x => x.DonemYili)
                 .ThenByDescending(x => x.GuncellemeTarihi)
                 .FirstOrDefaultAsync(ct);
+
+            var registeredEmail = (existing?.Eposta ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(registeredEmail) || !registeredEmail.Contains('@'))
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Başvurunuzda kayıtlı e-posta bulunamadı. Telefon güncelleme için vakıf ile iletişime geçin.",
+                });
+            }
+
             if (existing is not null)
             {
-                existing.Telefon = telefon;
+                existing.KvkkOnay = true;
+                existing.GuncellemeTarihi = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+
+            // OTP oturumunda SMS hedefi olarak kayıtlı telefon tutulur; kanal e-posta
+            var otpSmsAnchor = !string.IsNullOrWhiteSpace(registeredPhone) ? registeredPhone! : telefon;
+            var otpChange = sessions.CreateOtp(tc, otpSmsAnchor, tip, pendingNewTelefon: telefon);
+            var mailText =
+                "Anadolu Güçbirliği Vakfı\n\n" +
+                $"Telefon güncelleme doğrulama kodunuz: {otpChange.Code}\n" +
+                "Kod 3 dakika geçerlidir. Bu işlemi siz başlatmadıysanız e-postayı dikkate almayın.\n";
+            var mailHtml = $"""
+                <div style="font-family:Segoe UI,Arial,sans-serif;color:#14241f;line-height:1.55">
+                  <h2 style="margin:0 0 8px">Anadolu Güçbirliği Vakfı</h2>
+                  <p style="margin:0 0 12px">Telefon numaranızı güncellemek için doğrulama kodunuz:</p>
+                  <p style="margin:0 0 16px;font-size:1.4rem;letter-spacing:0.12em"><strong>{otpChange.Code}</strong></p>
+                  <p style="margin:0;color:#5c6f67">Kod 3 dakika geçerlidir. Bu işlemi siz başlatmadıysanız bu iletiyi yok sayabilirsiniz.</p>
+                </div>
+                """;
+            try
+            {
+                await emailSender.SendAsync(
+                    registeredEmail,
+                    "AGB Vakfı — Telefon güncelleme kodu",
+                    mailHtml,
+                    mailText,
+                    replyTo: null,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Telefon guncelleme OTP e-posta gonderilemedi. TC={Tc}", TurkishId.MaskTc(tc));
+                return Results.BadRequest(new { success = false, message = "Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin." });
+            }
+
+            var exposeDebugChange = smsOptions.Value.ExposeDebugOtp
+                || string.Equals(smsOptions.Value.Provider, "Development", StringComparison.OrdinalIgnoreCase);
+
+            return Results.Ok(new
+            {
+                success = true,
+                sessionId = otpChange.SessionId,
+                telefonMasked = TurkishId.MaskEmail(registeredEmail),
+                epostaMasked = TurkishId.MaskEmail(registeredEmail),
+                hasExisting = true,
+                sadeceGiris = true,
+                telefonDegistir = true,
+                expiresInSeconds = 180,
+                debugOtp = exposeDebugChange ? otpChange.Code : null,
+                message = "Doğrulama kodu başvurunuzdaki e-posta adresinize gönderildi. Onaydan sonra yeni telefon numaranız kaydedilir.",
+            });
+        }
+
+        // Kayıtlı başvurusu olan TC için telefon da eşleşmeli (başkasının numarasıyla OTP alınamaz)
+        if (hasAnyForTc && !phoneMatchesTc)
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "T.C. kimlik numarası ile telefon eşleşmiyor. Başvuruda kullandığınız cep telefonunu girin veya “Numaram değişti” ile güncelleyin.",
+            });
+        }
+
+        if (request.SadeceGiris)
+        {
+            // Başvurum girişi: yeni taslak açılmaz; OTP sonrası tüm kayıtlar listelenir
+            if (!hasAnyForTc)
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Bu T.C. kimlik numarası ile kayıtlı başvuru bulunamadı.",
+                });
+            }
+
+            existing = await db.AGB_Vakif_Basvuru
+                .Where(x => x.TcKimlikNo == tc && x.Telefon == telefon)
+                .OrderByDescending(x => x.DonemYili)
+                .ThenByDescending(x => x.GuncellemeTarihi)
+                .FirstOrDefaultAsync(ct)
+                ?? await db.AGB_Vakif_Basvuru
+                    .Where(x => x.TcKimlikNo == tc)
+                    .OrderByDescending(x => x.DonemYili)
+                    .ThenByDescending(x => x.GuncellemeTarihi)
+                    .FirstOrDefaultAsync(ct);
+
+            if (existing is not null)
+            {
+                // Telefon değiştirilmez; yalnızca KVKK / güncelleme zamanı
                 existing.KvkkOnay = true;
                 existing.GuncellemeTarihi = DateTime.UtcNow;
                 await db.SaveChangesAsync(ct);
@@ -246,7 +384,12 @@ public static class BasvuruEndpoints
                 }
             }
 
-            existing.Telefon = telefon;
+            // Mevcut kayıtlarda telefon üzerine yazma (ele geçirme riski)
+            if (string.IsNullOrWhiteSpace(existing.Telefon))
+            {
+                existing.Telefon = telefon;
+            }
+
             existing.KvkkOnay = true;
             existing.GuncellemeTarihi = DateTime.UtcNow;
             if (string.IsNullOrWhiteSpace(existing.BasvuruNo))
@@ -286,13 +429,29 @@ public static class BasvuruEndpoints
         });
     }
 
-    private static IResult HandleSmsDogrula(
+    private static async Task<IResult> HandleSmsDogrula(
         SmsDogrulaRequest request,
-        OtpSessionService sessions)
+        BoytasWhContext db,
+        OtpSessionService sessions,
+        CancellationToken ct)
     {
         if (!sessions.TryVerifyOtp(request.SessionId, request.Code, out var access) || access is null)
         {
             return Results.BadRequest(new { success = false, message = "SMS kodu hatalı veya süresi dolmuş." });
+        }
+
+        if (access.PendingNewTelefonApplied)
+        {
+            var rows = await db.AGB_Vakif_Basvuru
+                .Where(x => x.TcKimlikNo == access.TcKimlikNo)
+                .ToListAsync(ct);
+            foreach (var row in rows)
+            {
+                row.Telefon = access.Telefon;
+                row.GuncellemeTarihi = DateTime.UtcNow;
+            }
+
+            await db.SaveChangesAsync(ct);
         }
 
         return Results.Ok(new
@@ -302,11 +461,13 @@ public static class BasvuruEndpoints
             basvuruTipi = access.BasvuruTipi,
             tcMasked = TurkishId.MaskTc(access.TcKimlikNo),
             telefonMasked = TurkishId.MaskPhone(access.Telefon),
+            telefonGuncellendi = access.PendingNewTelefonApplied,
         });
     }
 
     private static async Task<IResult> HandleSmsTekrar(
         KimlikRequest request,
+        BoytasWhContext db,
         OtpSessionService sessions,
         ISmsSender sms,
         Microsoft.Extensions.Options.IOptions<SmsOptions> smsOptions,
@@ -322,6 +483,22 @@ public static class BasvuruEndpoints
         }
 
         var tip = BasvuruTipi.Normalize(request.BasvuruTipi);
+
+        var phonesForTc = await db.AGB_Vakif_Basvuru.AsNoTracking()
+            .Where(x => x.TcKimlikNo == tc)
+            .Select(x => x.Telefon)
+            .ToListAsync(ct);
+        if (phonesForTc.Count > 0
+            && !phonesForTc.Any(p =>
+                string.Equals(TurkishId.NormalizePhone(p), telefon, StringComparison.Ordinal)))
+        {
+            return Results.BadRequest(new
+            {
+                success = false,
+                message = "T.C. kimlik numarası ile telefon eşleşmiyor.",
+            });
+        }
+
         var otp = sessions.CreateOtp(tc, telefon, tip);
         try
         {
